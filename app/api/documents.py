@@ -9,8 +9,7 @@ from app.schemas.document import (
 )
 
 from app.services.pdf_service import extract_text_from_pdf
-from app.services.text_service import normalize_text
-from app.services.chunking_service import chunk_text
+from app.services.document_processing_service import process_document_text
 
 router = APIRouter(
     prefix="/documents",
@@ -78,13 +77,7 @@ async def upload_document(
             detail="No extractable text was found in the PDF.",
         )
 
-    cleaned_text = normalize_text(extracted_text)
-
-    chunks = chunk_text(
-        cleaned_text,
-        chunk_size=1000,
-        overlap=150,
-    )
+    chunks, embeddings = process_document_text(extracted_text)
 
     return DocumentResponse(
         id=document_id,
