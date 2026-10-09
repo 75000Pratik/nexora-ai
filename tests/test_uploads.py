@@ -7,6 +7,7 @@ from app.main import app
 
 client = TestClient(app)
 
+
 def create_test_pdf() -> bytes:
     pdf_stream = BytesIO()
 
@@ -15,6 +16,7 @@ def create_test_pdf() -> bytes:
     writer.write(pdf_stream)
 
     return pdf_stream.getvalue()
+
 
 def test_reject_non_pdf_upload():
     response = client.post(
@@ -33,6 +35,7 @@ def test_reject_non_pdf_upload():
         "detail": "Only PDF files are supported."
     }
 
+
 def test_reject_pdf_without_extractable_text():
     pdf_bytes = create_test_pdf()
 
@@ -44,7 +47,7 @@ def test_reject_pdf_without_extractable_text():
                 pdf_bytes,
                 "application/pdf",
             )
-        },    
+        },
     )
 
     assert response.status_code == 422

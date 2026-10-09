@@ -13,12 +13,3 @@ app = FastAPI(
 
 app.include_router(health_router)
 app.include_router(documents_router)
-
-
-@app.get("/health")
-def health_check():
-    return {
-        "status": "ok",
-        "service": "nexora-ai",
-        "environment": settings.environment,
-    }

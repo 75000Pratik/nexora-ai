@@ -7,7 +7,10 @@ from app.schemas.document import (
     DocumentResponse,
     DocumentStatus,
 )
+
 from app.services.pdf_service import extract_text_from_pdf
+from app.services.text_service import normalize_text
+from app.services.chunking_service import chunk_text
 
 router = APIRouter(
     prefix="/documents",
@@ -58,6 +61,7 @@ async def upload_document(
 
     try:
         extracted_text = extract_text_from_pdf(file_path)
+
     except Exception as exc:
         file_path.unlink(missing_ok=True)
 
@@ -73,6 +77,14 @@ async def upload_document(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="No extractable text was found in the PDF.",
         )
+
+    cleaned_text = normalize_text(extracted_text)
+
+    chunks = chunk_text(
+        cleaned_text,
+        chunk_size=1000,
+        overlap=150,
+    )
 
     return DocumentResponse(
         id=document_id,
