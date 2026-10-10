@@ -67,4 +67,18 @@ class VectorStoreService:
         self.client.upsert(
             collection_name=self.collection_name,
             points=points,
-        )    
+        )  
+
+    def search(
+            self,
+            query_vector: list[float],
+            limit: int = 3,
+    ):
+        result = self.client.query_points(
+            collection_name = self.collection_name,
+            query = query_vector,
+            with_payload = True,
+            limit = limit,
+        )
+
+        return result.points
