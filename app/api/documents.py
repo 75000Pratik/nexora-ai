@@ -9,6 +9,7 @@ from app.schemas.document import (
 )
 
 from app.services.pdf_service import extract_text_from_pdf
+from app.services.vector_store_service import VectorStoreService
 from app.services.document_processing_service import process_document_text
 
 router = APIRouter(
@@ -21,6 +22,9 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_CONTENT_TYPES = {"application/pdf"}
+
+vector_store = VectorStoreService()
+vector_store.ensure_collection()
 
 
 @router.post(
@@ -78,6 +82,12 @@ async def upload_document(
         )
 
     chunks, embeddings = process_document_text(extracted_text)
+
+    vector_store.store_document_chunks(
+        document_id=document_id,
+        chunks=chunks,
+        embeddings=embeddings,
+    )
 
     return DocumentResponse(
         id=document_id,
