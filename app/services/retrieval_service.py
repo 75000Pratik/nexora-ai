@@ -11,12 +11,14 @@ class RetrievalService:
             self,
             query: str,
             limit: int = 3,
+            document_id: str | None = None,
     ) -> list[RetrievalResult]:
         query_vector = self.embedding_service.embed_text(query)
 
         results = self.vector_store.search(
             query_vector = query_vector,
-            limit = limit
+            limit = limit,
+            document_id = document_id,
         )
 
         retrieval_results = []

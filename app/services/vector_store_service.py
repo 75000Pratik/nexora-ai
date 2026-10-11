@@ -1,6 +1,9 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import(
     Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
     PointStruct,
     VectorParams,
 
@@ -73,12 +76,26 @@ class VectorStoreService:
             self,
             query_vector: list[float],
             limit: int = 3,
+            document_id: str | None = None,
     ):
+        query_filter = None
+
+        if document_id is not None:
+            query_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="document_id",
+                        match=MatchValue(value=document_id),
+                    )
+                ]
+            )
+
         result = self.client.query_points(
             collection_name = self.collection_name,
             query = query_vector,
+            query_filter = query_filter,
             with_payload = True,
-            limit = limit,
-        )
+            limit = limit
+        )    
 
         return result.points
