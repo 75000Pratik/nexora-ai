@@ -3,7 +3,7 @@ from app.services.retrieval_service import RetrievalService
 
 retrieval_service = RetrievalService()
 
-query = "What machine learning projects has this person worked on?"
+query = "AWS Glue ETL pipelines"
 
 document_id = "d51edcc2-66e8-4844-b8f8-df727f64a144"
 
