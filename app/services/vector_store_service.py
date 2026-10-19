@@ -1,5 +1,5 @@
 from qdrant_client import QdrantClient
-from qdrant_client.models import(
+from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
@@ -14,6 +14,7 @@ from uuid import uuid5, NAMESPACE_URL
 from app.schemas.chunk import DocumentChunk
 
 Vector_Size = 384
+
 
 class VectorStoreService:
     def __init__(self) -> None:
@@ -31,7 +32,7 @@ class VectorStoreService:
                 distance=Distance.COSINE,
 
             ),
-        )    
+        )
 
     def store_document_chunks(
             self,
@@ -43,7 +44,7 @@ class VectorStoreService:
         if len(chunks) != len(embeddings):
             raise ValueError(
                 "Number of chunks must match number of embeddings"
-            )        
+            )
 
         points = []
 
@@ -70,7 +71,7 @@ class VectorStoreService:
         self.client.upsert(
             collection_name=self.collection_name,
             points=points,
-        )  
+        )
 
     def search(
             self,
@@ -91,11 +92,58 @@ class VectorStoreService:
             )
 
         result = self.client.query_points(
-            collection_name = self.collection_name,
-            query = query_vector,
-            query_filter = query_filter,
-            with_payload = True,
-            limit = limit
-        )    
+            collection_name=self.collection_name,
+            query=query_vector,
+            query_filter=query_filter,
+            with_payload=True,
+            limit=limit
+        )
 
         return result.points
+
+    def get_chunks(
+        self,
+        document_id: str | None = None,
+        batch_size: int = 256,
+    ):
+        if batch_size <= 0:
+            raise ValueError("batch_size must be greater than zero")
+
+        query_filter = None
+
+        if document_id is not None:
+            query_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="document_id",
+                        match=MatchValue(value=document_id),
+                    )
+                ]
+            )
+
+        records = []
+        next_page_offset = None
+
+        while True:
+            batch, next_page_offset = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=query_filter,
+                limit=batch_size,
+                offset=next_page_offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            records.extend(batch)
+
+            if next_page_offset is None:
+                break
+
+        records.sort(
+            key=lambda point: (
+                str(point.payload.get("document_id", "")),
+                int(point.payload.get("chunk_index", 0)),
+            )
+        )
+
+        return records

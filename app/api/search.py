@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.schemas.search import SearchRequest, SearchResponse
-from app.services.retrieval_service import RetrievalService
+from app.services.hybrid_retrieval_service import HybridRetrievalService
 
 router = APIRouter(
     prefix="/search",
@@ -9,7 +9,7 @@ router = APIRouter(
 
 )
 
-retrieval_service = RetrievalService()
+retrieval_service = HybridRetrievalService()
 
 
 @router.post(
