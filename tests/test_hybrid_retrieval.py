@@ -42,6 +42,25 @@ class FakeDenseRetrieval:
         self.was_called = True
         return self.results[:limit]
 
+class FakeRerankingService:
+    def rerank(self, query, documents):
+        print(f"\nReranking candidates: {len(documents)}")
+        
+        scores = []    
+
+        for index, document in enumerate(documents):
+            score = (
+                10.0
+                if "AWS Glue ETL pipelines" in document
+                else 1.0
+            )
+            scores.append((index, score))
+
+        return sorted(
+            scores,
+            key = lambda item: (-item[1], item[0]),
+        )
+
 def test_hybrid_retrieval_combining_rankings():
     records = [
         make_record(5, "AWS Glue ETL pipelines using PySpark"),
@@ -71,6 +90,7 @@ def test_hybrid_retrieval_combining_rankings():
     service = HybridRetrievalService.__new__(HybridRetrievalService)
     service.vector_store = FakeVectorStore(records)
     service.dense_retrieval = FakeDenseRetrieval(dense_results)
+    service.reranking_service = FakeRerankingService()
 
     results = service.retrieve(
         query = "AWS Glue ETL pipelines",

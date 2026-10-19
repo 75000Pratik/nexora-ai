@@ -3,12 +3,14 @@ from app.schemas.retrieval import RetrievalResult
 from app.services.bm25_service import BM25Service
 from app.services.fusion_service import reciprocal_rank_fusion
 from app.services.retrieval_service import RetrievalService
+from app.services.reranking_service import RerankingService
 
 
 class HybridRetrievalService:
     def __init__(self) -> None:
         self.dense_retrieval = RetrievalService()
         self.vector_store = self.dense_retrieval.vector_store
+        self.reranking_service = RerankingService()
 
     def retrieve(
         self,
@@ -77,20 +79,41 @@ class HybridRetrievalService:
             k=60,
         )
 
+        rerank_candidates = fused_results[:candidate_limit]
+
+        if not rerank_candidates:
+            return []
+
+        candidate_ids = [
+            chunk_id
+            for chunk_id, _ in rerank_candidates
+        ]
+
+        candidate_documents = [
+            results_by_id[chunk_id].text
+            for chunk_id in candidate_ids
+        ]
+
+        reranked_results = self.reranking_service.rerank(
+            query = query,
+            documents = candidate_documents,
+        )
+
         final_results = []
 
-        for chunk_id, fusion_score in fused_results[:limit]:
+        for index, rerank_score in reranked_results[:limit]:
+            chunk_id = candidate_ids[index]
             original = results_by_id[chunk_id]
 
             final_results.append(
                 RetrievalResult(
-                    document_id=original.document_id,
-                    chunk_index=original.chunk_index,
-                    text=original.text,
-                    score=fusion_score,
-                    start_char=original.start_char,
-                    end_char=original.end_char,
+                    document_id = original.document_id,
+                    chunk_index = original.chunk_index,
+                    text = original.text,
+                    score = rerank_score,
+                    start_char = original.start_char,
+                    end_char = original.end_char,
                 )
             )
 
-        return final_results
+        return final_results    
