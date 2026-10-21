@@ -17,6 +17,7 @@ class HybridRetrievalService:
         query: str,
         limit: int = 3,
         document_id: str | None = None,
+        apply_reranking: bool = True
     ) -> list[RetrievalResult]:
         records = self.vector_store.get_chunks(
             document_id=document_id
@@ -79,6 +80,19 @@ class HybridRetrievalService:
             k=60,
         )
 
+        if not apply_reranking:
+            return [
+                RetrievalResult(
+                    document_id=results_by_id[chunk_id].document_id,
+                    chunk_index=results_by_id[chunk_id].chunk_index,
+                    text=results_by_id[chunk_id].text,
+                    score=float(fusion_score),
+                    start_char=results_by_id[chunk_id].start_char,
+                    end_char=results_by_id[chunk_id].end_char,
+                )
+                for chunk_id, fusion_score in fused_results[:limit]
+            ]
+
         rerank_candidates = fused_results[:candidate_limit]
 
         if not rerank_candidates:
@@ -95,8 +109,8 @@ class HybridRetrievalService:
         ]
 
         reranked_results = self.reranking_service.rerank(
-            query = query,
-            documents = candidate_documents,
+            query=query,
+            documents=candidate_documents,
         )
 
         final_results = []
@@ -107,13 +121,13 @@ class HybridRetrievalService:
 
             final_results.append(
                 RetrievalResult(
-                    document_id = original.document_id,
-                    chunk_index = original.chunk_index,
-                    text = original.text,
-                    score = rerank_score,
-                    start_char = original.start_char,
-                    end_char = original.end_char,
+                    document_id=original.document_id,
+                    chunk_index=original.chunk_index,
+                    text=original.text,
+                    score=rerank_score,
+                    start_char=original.start_char,
+                    end_char=original.end_char,
                 )
             )
 
-        return final_results    
+        return final_results
