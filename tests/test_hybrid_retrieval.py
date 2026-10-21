@@ -143,3 +143,38 @@ def test_hybrid_retrieval_returns_empty_when_no_candidates_match():
 
     assert results == []
     assert service.dense_retrieval.was_called
+
+
+def test_hybrid_retrieval_filters_chunks_by_document_id():
+    other_document_id = "another-document-456"
+
+    records = [
+        make_record(0, "AWS Glue ETL pipelines using PySpark"),
+        SimpleNamespace(
+            payload={
+                "document_id": other_document_id,
+                "chunk_index": 1,
+                "text": "AWS Glue data engineering",
+                "start_char": 100,
+                "end_char": 100 + len("AWS Glue data engineering"),
+            }
+        ),
+    ]
+
+    service = HybridRetrievalService.__new__(HybridRetrievalService)
+    service.vector_store = FakeVectorStore(records)
+    service.dense_retrieval = FakeDenseRetrieval([])
+    service.reranking_service = FakeRerankingService()
+
+    results = service.retrieve(
+        query="AWS Glue ETL pipelines",
+        limit=3,
+        document_id=DOCUMENT_ID,
+    )
+
+    assert results
+    assert all(
+        result.document_id == DOCUMENT_ID
+        for result in results
+    )
+    assert service.vector_store.requested_document_id == DOCUMENT_ID
