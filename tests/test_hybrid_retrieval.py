@@ -178,3 +178,50 @@ def test_hybrid_retrieval_filters_chunks_by_document_id():
         for result in results
     )
     assert service.vector_store.requested_document_id == DOCUMENT_ID
+
+
+def test_hybrid_retrieval_can_disable_reranking():
+    records = [
+        make_record(0, "AWS Glue ETL pipelines using PySpark"),
+        make_record(1, "Generative AI and machine learning projects"),
+    ]
+
+    dense_results = [
+        RetrievalResult(
+            document_id=DOCUMENT_ID,
+            chunk_index=1,
+            text=records[1].payload["text"],
+            score=0.90,
+            start_char=100,
+            end_char=100 + len(records[1].payload["text"]),
+        ),
+        RetrievalResult(
+            document_id=DOCUMENT_ID,
+            chunk_index=0,
+            text=records[0].payload["text"],
+            score=0.80,
+            start_char=0,
+            end_char=len(records[0].payload["text"]),
+        ),
+    ]
+
+    service = HybridRetrievalService.__new__(HybridRetrievalService)
+    service.vector_store = FakeVectorStore(records)
+    service.dense_retrieval = FakeDenseRetrieval(dense_results)
+
+    class FailingRerankingService:
+        def rerank(self, query, documents):
+            raise AssertionError("Reranking should not be called")
+
+    service.reranking_service = FailingRerankingService()
+
+    results = service.retrieve(
+        query="AWS Glue ETL pipelines",
+        limit=2,
+        document_id=DOCUMENT_ID,
+        apply_reranking=False,
+    )
+
+    assert len(results) == 2
+    assert {result.chunk_index for result in results} == {0, 1}
+    assert all(result.score > 0 for result in results)
