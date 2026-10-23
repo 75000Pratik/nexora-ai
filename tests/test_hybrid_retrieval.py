@@ -225,3 +225,54 @@ def test_hybrid_retrieval_can_disable_reranking():
     assert len(results) == 2
     assert {result.chunk_index for result in results} == {0, 1}
     assert all(result.score > 0 for result in results)
+
+def test_hybrid_retrieval_reranking_changes_result_order():
+    records = [
+        make_record(0, "AWS Glue ETL pipelines using PySpark"),
+        make_record(1, "Generative AI and machine learning projects"),
+    ]
+
+    dense_results = [
+        RetrievalResult(
+            document_id= DOCUMENT_ID,
+            chunk_index=1,
+            text=records[1].payload["text"],
+            score=0.90,
+            start_char=100,
+            end_char=100 + len(records[1].payload["text"]),
+        ),
+        RetrievalResult(
+            document_id=DOCUMENT_ID,
+            chunk_index = 0,
+            text=records[0].payload["text"],
+            score = 0.80,
+            start_char = 0,
+            end_char = len(records[0]. payload["text"]),
+        ),
+    ]
+
+    service = HybridRetrievalService.__new__(HybridRetrievalService)
+    service.vector_store = FakeVectorStore(records)
+    service.dense_retrieval = FakeDenseRetrieval(dense_results)
+    service.reranking_service = FakeRerankingService()
+
+    baseline = service.retrieve(
+        query = "AWS Glue ETL pipelines",
+        limit = 2,
+        document_id=DOCUMENT_ID,
+        apply_reranking = False,
+    )
+
+    reranked = service.retrieve(
+        query = "AWS Glue ETL pipelines",
+        limit = 2,
+        document_id=DOCUMENT_ID,
+        apply_reranking = True,
+    )
+
+    assert len(baseline) == 2
+    assert len(reranked) == 2
+    assert baseline[0].chunk_index == 1
+    assert reranked[0].chunk_index == 0
+    assert baseline[0].chunk_index != reranked[0].chunk_index
+    assert reranked[0].score == 10.0
