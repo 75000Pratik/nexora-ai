@@ -40,6 +40,6 @@ EVALUATION_DATASET = [
     },
     {
         "query": "Docker deployment CI/CD pipelines and Azure Functions",
-        "relevant_ids": {f"{DOCUMENT_ID}::4", f"{DOCUMENT_ID}::5"},
+        "relevant_ids": {f"{DOCUMENT_ID}::4"},
     },
 ]
