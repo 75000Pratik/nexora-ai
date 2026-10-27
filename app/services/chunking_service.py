@@ -48,13 +48,13 @@ def chunk_text(
         if end == text_length:
             break
 
-        next_start = max(start, end - overlap)
+        if text[end:end + 2] == "\n\n":
+            next_start = end + 2
+        else:
+            next_start = max(start, end - overlap)
 
-        if next_start <= start:
-            next_start = end
-
-        if overlap == 0 and text[next_start:next_start + 2] == "\n\n":
-            next_start += 2
+            if next_start <= start:
+                next_start = end
 
         start = next_start
         chunk_index += 1

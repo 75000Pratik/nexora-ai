@@ -68,3 +68,17 @@ def test_chunk_text_prefers_paragraph_boundary():
 
     assert chunks[0].text == "First paragraph."
     assert chunks[1].text == "Second paragraph."
+
+
+def test_chunk_text_preserves_paragraph_boundary_with_overlap():
+    text = "First paragraph.\n\nSecond paragraph."
+
+    chunks = chunk_text(
+        text,
+        chunk_size=20,
+        overlap=5,
+    )
+
+    assert chunks[0].text == "First paragraph."
+    assert chunks[1].text == "Second paragraph."
+    assert chunks[1].start_char == text.index("Second paragraph.")
