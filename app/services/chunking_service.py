@@ -1,9 +1,11 @@
+
 from app.schemas.chunk import DocumentChunk
 
+
 def chunk_text(
-        text: str,
-        chunk_size: int = 1000,
-        overlap: int = 150,
+    text: str,
+    chunk_size: int = 1000,
+    overlap: int = 150,
 ) -> list[DocumentChunk]:
     if chunk_size <= 0:
         raise ValueError("chunk_size must be greater than 0")
@@ -18,26 +20,43 @@ def chunk_text(
         return []
 
     chunks: list[DocumentChunk] = []
-
     start = 0
     chunk_index = 0
+    text_length = len(text)
 
-    while start < len(text):
-        end = min(start + chunk_size, len(text))
+    while start < text_length:
+        end = min(start + chunk_size, text_length)
 
-        chunk = DocumentChunk(
-            chunk_index=chunk_index,
-            text=text[start:end],
-            start_char=start,
-            end_char=end,
+        if end < text_length:
+            boundary = text.rfind("\n\n", start, end)
+
+            if boundary > start:
+                end = boundary
+
+        if end <= start:
+            end = min(start + chunk_size, text_length)
+
+        chunks.append(
+            DocumentChunk(
+                chunk_index=chunk_index,
+                text=text[start:end],
+                start_char=start,
+                end_char=end,
+            )
         )
 
-        chunks.append(chunk)
-
-        if end == len(text):
+        if end == text_length:
             break
 
-        start = end - overlap
+        next_start = max(start, end - overlap)
+
+        if next_start <= start:
+            next_start = end
+
+        if overlap == 0 and text[next_start:next_start + 2] == "\n\n":
+            next_start += 2
+
+        start = next_start
         chunk_index += 1
 
     return chunks

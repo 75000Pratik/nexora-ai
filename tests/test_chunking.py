@@ -55,3 +55,16 @@ def test_chunk_text_rejects_invalid_overlap():
             chunk_size=5,
             overlap=5,
         )
+
+
+def test_chunk_text_prefers_paragraph_boundary():
+    text = "First paragraph.\n\nSecond paragraph."
+
+    chunks = chunk_text(
+        text,
+        chunk_size=20,
+        overlap=0,
+    )
+
+    assert chunks[0].text == "First paragraph."
+    assert chunks[1].text == "Second paragraph."
