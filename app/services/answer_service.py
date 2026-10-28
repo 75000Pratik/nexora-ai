@@ -10,11 +10,16 @@ from app.services.llm_service import LLMService
 
 from app.core.config import settings
 
+from app.services.answer_validation_service import (
+    AnswerValidationService,
+)
+
 
 class AnswerService:
     def __init__(self) -> None:
         self.retrieval_service = HybridRetrievalService()
         self.llm_service = LLMService()
+        self.validation_service = AnswerValidationService()
 
     def answer(
         self,
@@ -81,6 +86,19 @@ class AnswerService:
             prompt=prompt,
             system_prompt=system_prompt,
         )
+
+        is_supported = self.validation_service.is_supported(
+            query=query,
+            answer=generated_answer,
+            context=context,
+        )
+
+        if not is_supported:
+            generated_answer = (
+                "I couldn't verify that the generated answer is fully "
+                "supported by the available documents, so I can't "
+                "provide a reliable answer."
+            )
 
         sources = [
             AnswerSource(
