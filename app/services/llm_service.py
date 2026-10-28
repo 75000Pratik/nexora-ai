@@ -27,6 +27,9 @@ class LLMService:
                     },
                 ],
                 "stream": False,
+                "options": {
+                    "temperature": 0,
+                },
             },
             timeout=120.0,
         )

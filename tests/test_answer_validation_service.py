@@ -67,3 +67,57 @@ def test_validator_fails_closed_on_llm_error():
     )
 
     assert result is False
+
+
+def test_validator_rejects_answer_with_unsupported_service():
+    service = AnswerValidationService()
+    service.llm_service.generate = Mock(
+        return_value="SUPPORTED"
+    )
+
+    result = service.is_supported(
+        query="Which service did the RAG pipeline use?",
+        answer=(
+            "The RAG pipeline used Amazon Bedrock "
+            "and Amazon EKS."
+        ),
+        context="The RAG pipeline used Amazon Bedrock.",
+    )
+
+    assert result is False
+
+
+def test_validator_rejects_service_from_unrelated_project():
+    service = AnswerValidationService()
+    service.llm_service.generate = Mock(
+        return_value="SUPPORTED"
+    )
+
+    result = service.is_supported(
+        query="Which service did the RAG pipeline use?",
+        answer=(
+            "The RAG pipeline used Amazon Bedrock "
+            "and Amazon EMR."
+        ),
+        context=(
+            "The RAG pipeline used Amazon Bedrock. "
+            "A separate project used Amazon EMR."
+        ),
+    )
+
+    assert result is False
+
+
+def test_validator_accepts_sentence_starting_with_the():
+    service = AnswerValidationService()
+    service.llm_service.generate = Mock(
+        return_value="SUPPORTED"
+    )
+
+    result = service.is_supported(
+        query="What does the system use?",
+        answer="The system uses FastAPI.",
+        context="the system uses FastAPI.",
+    )
+
+    assert result is True
