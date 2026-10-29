@@ -6,10 +6,15 @@ from app.services.hybrid_retrieval_service import HybridRetrievalService
 DOCUMENT_ID = "test-document-123"
 
 
-def make_record(chunk_index: int, text: str):
+def make_record(
+        chunk_index: int,
+        text: str,
+        project_id: str = "project-a",
+):
     return SimpleNamespace(
         payload={
             "document_id": DOCUMENT_ID,
+            "project_id": project_id,
             "chunk_index": chunk_index,
             "text": text,
             "start_char": chunk_index * 100,
@@ -23,17 +28,25 @@ class FakeVectorStore:
         self.records = records
         self.requested_document_id = None
 
-    def get_chunks(self, document_id=None):
+    def get_chunks(self, document_id=None, project_id=None):
         self.requested_document_id = document_id
+        self.requested_project_id = project_id
 
-        if document_id is None:
-            return self.records
+        records = self.records
 
-        return [
-            record
-            for record in self.records
-            if record.payload["document_id"] == document_id
-        ]
+        if document_id is not None:
+            records = [
+                record for record in records
+                if record.payload["document_id"] == document_id
+            ]
+
+        if project_id is not None:
+            records = [
+                record for record in records
+                if record.payload["project_id"] == project_id
+            ]
+
+        return records
 
 
 class FakeDenseRetrieval:
@@ -41,8 +54,9 @@ class FakeDenseRetrieval:
         self.results = results
         self.was_called = False
 
-    def retrieve(self, query, limit=3, document_id=None):
+    def retrieve(self, query, limit=3, document_id=None, project_id=None):
         self.was_called = True
+        self.requested_project_id = project_id
         return self.results[:limit]
 
 
@@ -226,6 +240,7 @@ def test_hybrid_retrieval_can_disable_reranking():
     assert {result.chunk_index for result in results} == {0, 1}
     assert all(result.score > 0 for result in results)
 
+
 def test_hybrid_retrieval_reranking_changes_result_order():
     records = [
         make_record(0, "AWS Glue ETL pipelines using PySpark"),
@@ -234,7 +249,7 @@ def test_hybrid_retrieval_reranking_changes_result_order():
 
     dense_results = [
         RetrievalResult(
-            document_id= DOCUMENT_ID,
+            document_id=DOCUMENT_ID,
             chunk_index=1,
             text=records[1].payload["text"],
             score=0.90,
@@ -243,11 +258,11 @@ def test_hybrid_retrieval_reranking_changes_result_order():
         ),
         RetrievalResult(
             document_id=DOCUMENT_ID,
-            chunk_index = 0,
+            chunk_index=0,
             text=records[0].payload["text"],
-            score = 0.80,
-            start_char = 0,
-            end_char = len(records[0]. payload["text"]),
+            score=0.80,
+            start_char=0,
+            end_char=len(records[0]. payload["text"]),
         ),
     ]
 
@@ -257,17 +272,17 @@ def test_hybrid_retrieval_reranking_changes_result_order():
     service.reranking_service = FakeRerankingService()
 
     baseline = service.retrieve(
-        query = "AWS Glue ETL pipelines",
-        limit = 2,
+        query="AWS Glue ETL pipelines",
+        limit=2,
         document_id=DOCUMENT_ID,
-        apply_reranking = False,
+        apply_reranking=False,
     )
 
     reranked = service.retrieve(
-        query = "AWS Glue ETL pipelines",
-        limit = 2,
+        query="AWS Glue ETL pipelines",
+        limit=2,
         document_id=DOCUMENT_ID,
-        apply_reranking = True,
+        apply_reranking=True,
     )
 
     assert len(baseline) == 2
@@ -276,3 +291,39 @@ def test_hybrid_retrieval_reranking_changes_result_order():
     assert reranked[0].chunk_index == 0
     assert baseline[0].chunk_index != reranked[0].chunk_index
     assert reranked[0].score == 10.0
+
+
+def test_hybrid_retrieval_filters_chunks_by_project_id():
+    records = [
+        make_record(
+            0,
+            "AWS Glue ETL pipelines",
+            project_id="project-a",
+        ),
+        make_record(
+            1,
+            "Generative AI and machine learning",
+            project_id="project-b",
+        ),
+    ]
+
+    service = HybridRetrievalService.__new__(HybridRetrievalService)
+    service.vector_store = FakeVectorStore(records)
+    service.dense_retrieval = FakeDenseRetrieval([])
+    service.reranking_service = FakeRerankingService()
+
+    results = service.retrieve(
+        query="AWS Glue ETL pipelines",
+        limit=3,
+        project_id="project-a",
+    )
+    assert service.vector_store.requested_project_id == "project-a"
+    assert service.dense_retrieval.requested_project_id == "project-a"
+    assert all(
+        result.document_id == DOCUMENT_ID
+        for result in results
+    )
+    assert all(
+        result.text != "Generative AI and machine learning"
+        for result in results
+    )

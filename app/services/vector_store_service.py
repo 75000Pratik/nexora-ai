@@ -39,6 +39,7 @@ class VectorStoreService:
             document_id: str,
             chunks: list[DocumentChunk],
             embeddings: list[list[float]],
+            project_id: str | None = None,
     ) -> None:
 
         if len(chunks) != len(embeddings):
@@ -59,6 +60,7 @@ class VectorStoreService:
                 vector=embedding,
                 payload={
                     "document_id": document_id,
+                    "project_id": project_id,
                     "chunk_index": chunk.chunk_index,
                     "text": chunk.text,
                     "start_char": chunk.start_char,
@@ -78,18 +80,26 @@ class VectorStoreService:
             query_vector: list[float],
             limit: int = 3,
             document_id: str | None = None,
+            project_id: str | None = None,
     ):
-        query_filter = None
+        conditions = []
 
         if document_id is not None:
-            query_filter = Filter(
-                must=[
-                    FieldCondition(
-                        key="document_id",
-                        match=MatchValue(value=document_id),
-                    )
-                ]
+            conditions.append(
+                FieldCondition(
+                    key="document_id",
+                    match=MatchValue(value=document_id),
+                )
             )
+        if project_id is not None:
+            conditions.append(
+                FieldCondition(
+                    key="project_id",
+                    match=MatchValue(value=project_id),
+                )
+            )
+
+        query_filter = Filter(must=conditions) if conditions else None
 
         result = self.client.query_points(
             collection_name=self.collection_name,
@@ -104,22 +114,31 @@ class VectorStoreService:
     def get_chunks(
         self,
         document_id: str | None = None,
+        project_id: str | None = None,
         batch_size: int = 256,
     ):
         if batch_size <= 0:
             raise ValueError("batch_size must be greater than zero")
 
-        query_filter = None
+        conditions = []
 
         if document_id is not None:
-            query_filter = Filter(
-                must=[
-                    FieldCondition(
-                        key="document_id",
-                        match=MatchValue(value=document_id),
-                    )
-                ]
+            conditions.append(
+                FieldCondition(
+                    key="document_id",
+                    match=MatchValue(value=document_id),
+                )
             )
+
+        if project_id is not None:
+            conditions.append(
+                FieldCondition(
+                    key="project_id",
+                    match=MatchValue(value=project_id),
+                )
+            )
+
+        query_filter = Filter(must=conditions) if conditions else None
 
         records = []
         next_page_offset = None

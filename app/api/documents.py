@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.schemas.document import (
     DocumentResponse,
@@ -34,6 +34,7 @@ vector_store.ensure_collection()
 )
 async def upload_document(
     file: UploadFile = File(...),
+    project_id: str | None = Form(default=None),
 ) -> DocumentResponse:
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
@@ -87,6 +88,7 @@ async def upload_document(
         document_id=document_id,
         chunks=chunks,
         embeddings=embeddings,
+        project_id=project_id,
     )
 
     return DocumentResponse(

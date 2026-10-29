@@ -17,10 +17,12 @@ class HybridRetrievalService:
         query: str,
         limit: int = 3,
         document_id: str | None = None,
-        apply_reranking: bool = True
+        project_id: str | None = None,
+        apply_reranking: bool = True,
     ) -> list[RetrievalResult]:
         records = self.vector_store.get_chunks(
-            document_id=document_id
+            document_id=document_id,
+            project_id=project_id,
         )
 
         if not records:
@@ -68,6 +70,7 @@ class HybridRetrievalService:
             query=query,
             limit=candidate_limit,
             document_id=document_id,
+            project_id=project_id,
         )
 
         dense_ranking = [

@@ -12,6 +12,7 @@ class RetrievalService:
             query: str,
             limit: int = 3,
             document_id: str | None = None,
+            project_id: str | None = None,
     ) -> list[RetrievalResult]:
         query_vector = self.embedding_service.embed_text(query)
 
@@ -19,6 +20,7 @@ class RetrievalService:
             query_vector = query_vector,
             limit = limit,
             document_id = document_id,
+            project_id = project_id,
         )
 
         retrieval_results = []
