@@ -10,6 +10,7 @@ class SearchRequest(BaseModel):
         max_length=1000,
     )
     document_id: str | None = None
+    project_id: str | None = None
     limit: int = Field(
         default=3,
         ge=1,

@@ -23,6 +23,7 @@ def search_documents(
         query=request.query,
         limit=request.limit,
         document_id=request.document_id,
+        project_id=request.project_id,
     )
 
     return SearchResponse(
