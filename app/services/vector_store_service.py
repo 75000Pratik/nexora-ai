@@ -3,10 +3,10 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    FilterSelector,
     MatchValue,
     PointStruct,
     VectorParams,
-
 )
 
 from app.core.config import settings
@@ -166,3 +166,22 @@ class VectorStoreService:
         )
 
         return records
+
+    def delete_document_chunks(
+        self,
+        document_id: str,
+    ) -> None:
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(
+                            key="document_id",
+                            match=MatchValue(value=document_id),
+                        )
+                    ]
+                )
+            ),
+            wait=True,
+        )

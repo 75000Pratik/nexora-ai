@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models.document import Document
+from app.schemas.document import DocumentStatus
 
 
 class DocumentRepository:
@@ -38,9 +39,9 @@ class DocumentRepository:
     def update_status(
         self,
         document: Document,
-        status: str,
+        status: DocumentStatus,
     ) -> Document:
-        document.status = status
+        document.status = status.value
 
         try:
             self.db.commit()
