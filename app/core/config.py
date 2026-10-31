@@ -5,7 +5,9 @@ class Settings(BaseSettings):
     app_name: str = "Nexora AI"
     app_version: str = "0.1.0"
     environment: str = "development"
-    reranking_min_score: float = 0.0    
+    reranking_min_score: float = 0.0
+
+    database_url: str
 
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "nexora_documents"

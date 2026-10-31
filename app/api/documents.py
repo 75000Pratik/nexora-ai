@@ -1,7 +1,8 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status, Depends
+from sqlalchemy.orm import Session
 
 from app.schemas.document import (
     DocumentResponse,
@@ -11,6 +12,8 @@ from app.schemas.document import (
 from app.services.pdf_service import extract_text_from_pdf
 from app.services.vector_store_service import VectorStoreService
 from app.services.document_processing_service import process_document_text
+from app.repositories.document_repository import DocumentRepository
+from app.core.database import get_db
 
 router = APIRouter(
     prefix="/documents",
@@ -35,6 +38,7 @@ vector_store.ensure_collection()
 async def upload_document(
     file: UploadFile = File(...),
     project_id: str | None = Form(default=None),
+    db: Session = Depends(get_db),
 ) -> DocumentResponse:
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
@@ -56,7 +60,9 @@ async def upload_document(
             detail="Uploaded file must have a filename.",
         )
 
-    document_id = str(uuid4())
+    document_uuid = uuid4()
+    document_id = str(document_uuid)
+
 
     safe_filename = f"{document_id}.pdf"
     file_path = UPLOAD_DIR / safe_filename
@@ -84,16 +90,33 @@ async def upload_document(
 
     chunks, embeddings = process_document_text(extracted_text)
 
-    vector_store.store_document_chunks(
-        document_id=document_id,
-        chunks=chunks,
-        embeddings=embeddings,
+    repository = DocumentRepository(db)
+
+    document = repository.create(
+        document_id=document_uuid,
+        filename=file.filename,
+        content_type=file.content_type,
         project_id=project_id,
     )
+
+    try:
+
+        vector_store.store_document_chunks(
+            document_id=document_id,
+            chunks=chunks,
+            embeddings=embeddings,
+            project_id=project_id,
+        )
+
+        repository.update_status(document, "ready")
+
+    except Exception:
+        repository.update_status(document, "failed")
+        raise    
 
     return DocumentResponse(
         id=document_id,
         filename=file.filename,
         content_type=file.content_type,
-        status=DocumentStatus.uploaded,
+        status=DocumentStatus.ready,
     )

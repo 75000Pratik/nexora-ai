@@ -2,9 +2,40 @@ from io import BytesIO
 
 from fastapi.testclient import TestClient
 from pypdf import PdfWriter
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.schemas.chunk import DocumentChunk
+from app.core.database import Base, get_db
+from app.models.document import Document
+
+test_engine = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+
+TestingSessionLocal = sessionmaker(
+    bind=test_engine,
+    autoflush=False,
+    autocommit=False
+)
+
+Base.metadata.create_all(bind=test_engine)
+
+
+def override_get_db():
+    db = TestingSessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
 
@@ -117,3 +148,18 @@ def test_upload_document_with_project_id(monkeypatch):
     assert response.json()["filename"] == "test.pdf"
     assert stored_data["project_id"] == "project-a"
     assert len(stored_data["chunks"]) == 1
+
+    db = TestingSessionLocal()
+
+    try:
+        document = db.query(Document).filter_by(
+            filename="test.pdf",
+            project_id="project-a",
+        ).first()
+
+        assert document is not None
+        assert document.status == "ready"
+        assert document.content_type == "application/pdf"
+
+    finally:
+        db.close()
