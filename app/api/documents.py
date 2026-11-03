@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
@@ -188,4 +188,30 @@ async def upload_document(
         filename=file.filename,
         content_type=file.content_type,
         status=DocumentStatus.ready,
+    )
+
+
+@router.get(
+    "/{document_id}",
+    response_model=DocumentResponse,
+)
+def get_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+) -> DocumentResponse:
+    repository = DocumentRepository(db)
+
+    document = repository.get_by_id(document_id)
+
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found.",
+        )
+
+    return DocumentResponse(
+        id=str(document.id),
+        filename=document.filename,
+        content_type=document.content_type,
+        status=DocumentStatus(document.status),
     )

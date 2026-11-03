@@ -36,6 +36,9 @@ class DocumentRepository:
 
         return document
 
+    def get_by_id(self, document_id: UUID) -> Document | None:
+        return self.db.get(Document, document_id)
+
     def update_status(
         self,
         document: Document,

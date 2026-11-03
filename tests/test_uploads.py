@@ -1,6 +1,7 @@
 
 from io import BytesIO
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from pypdf import PdfWriter
@@ -439,3 +440,46 @@ def test_upload_cleans_up_when_ready_status_update_fails(monkeypatch):
 
     finally:
         db.close()
+
+
+def test_get_document_by_id():
+    document_id = uuid4()
+
+    db = TestingSessionLocal()
+
+    try:
+        document = Document(
+            id=document_id,
+            filename="lookup-test.pdf",
+            content_type="application/pdf",
+            project_id=None,
+            status="ready",
+        )
+
+        db.add(document)
+        db.commit()
+
+    finally:
+        db.close()
+
+    response = client.get(f"/documents/{document_id}")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == str(document_id)
+    assert data["filename"] == "lookup-test.pdf"
+    assert data["content_type"] == "application/pdf"
+    assert data["status"] == "ready"
+
+
+def test_get_document_returns_404_when_not_found():
+    document_id = uuid4()
+
+    response = client.get(f"/documents/{document_id}")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Document not found."
+    }
