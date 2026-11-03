@@ -483,3 +483,53 @@ def test_get_document_returns_404_when_not_found():
     assert response.json() == {
         "detail": "Document not found."
     }
+
+
+def test_list_documents_returns_documents():
+    response = client.get("/documents")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data["items"]) == data["total"]
+    assert data["total"] >= 0
+    assert data["skip"] == 0
+    assert data["limit"] == 20
+
+
+def test_list_documents_supports_pagination():
+    response = client.get("/documents?skip=1&limit=2")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["skip"] == 1
+    assert data["limit"] == 2
+    assert len(data["items"]) <= 2
+    assert data["total"] >= len(data["items"])
+
+
+def test_list_documents_filters_by_status():
+    response = client.get("/documents?document_status=ready")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert all(
+        document["status"] == "ready"
+        for document in data["items"]
+    )
+    assert data["total"] == len(data["items"])
+
+
+def test_list_documents_rejects_invalid_pagination():
+    negative_skip = client.get("/documents?skip=-1")
+    zero_limit = client.get("/documents?limit=0")
+    excessive_limit = client.get("/documents?limit=101")
+
+    assert negative_skip.status_code == 422
+    assert zero_limit.status_code == 422
+    assert excessive_limit.status_code == 422

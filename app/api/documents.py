@@ -4,18 +4,22 @@ from uuid import UUID, uuid4
 
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     Form,
     HTTPException,
     UploadFile,
     status,
-    Depends,
 )
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.repositories.document_repository import DocumentRepository
-from app.schemas.document import DocumentResponse, DocumentStatus
+from app.schemas.document import (
+    DocumentListResponse,
+    DocumentResponse,
+    DocumentStatus,
+)
 from app.services.document_processing_service import process_document_text
 from app.services.pdf_service import extract_text_from_pdf
 from app.services.vector_store_service import VectorStoreService
@@ -214,4 +218,50 @@ def get_document(
         filename=document.filename,
         content_type=document.content_type,
         status=DocumentStatus(document.status),
+    )
+
+
+@router.get(
+    "",
+    response_model=DocumentListResponse,
+)
+def list_documents(
+    skip: int = 0,
+    limit: int = 20,
+    document_status: DocumentStatus | None = None,
+    db: Session = Depends(get_db),
+) -> DocumentListResponse:
+    if skip < 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Skip must be greater than or equal to zero.",
+        )
+
+    if limit < 1 or limit > 100:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Limit must be between 1 and 100.",
+        )
+
+    repository = DocumentRepository(db)
+
+    documents, total = repository.list_documents(
+        skip=skip,
+        limit=limit,
+        status=document_status,
+    )
+
+    return DocumentListResponse(
+        items=[
+            DocumentResponse(
+                id=str(document.id),
+                filename=document.filename,
+                content_type=document.content_type,
+                status=DocumentStatus(document.status),
+            )
+            for document in documents
+        ],
+        total=total,
+        skip=skip,
+        limit=limit,
     )

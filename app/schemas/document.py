@@ -29,3 +29,10 @@ class DocumentResponse(BaseModel):
     filename: str
     content_type: str
     status: DocumentStatus
+
+
+class DocumentListResponse(BaseModel):
+    items: list[DocumentResponse]
+    total: int
+    skip: int
+    limit: int
