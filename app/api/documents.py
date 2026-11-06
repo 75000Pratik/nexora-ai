@@ -265,3 +265,67 @@ def list_documents(
         skip=skip,
         limit=limit,
     )
+
+
+@router.delete(
+    "/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_document(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+) -> None:
+    repository = DocumentRepository(db)
+
+    document = repository.get_by_id(document_id)
+
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found.",
+        )
+
+    document_id_str = str(document.id)
+    file_path = UPLOAD_DIR / f"{document_id_str}.pdf"
+
+    # Step 1: Delete document vectors from Qdrant.
+    try:
+        vector_store.delete_document_chunks(document_id_str)
+
+    except Exception as exc:
+        logger.exception(
+            "Failed to delete document vectors. document_id=%s",
+            document_id_str,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete document vectors.",
+        ) from exc
+
+    # Step 2: Delete the stored PDF.
+    try:
+        file_path.unlink(missing_ok=True)
+
+    except OSError as exc:
+        logger.exception(
+            "Failed to delete document PDF. document_id=%s",
+            document_id_str,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete document file.",
+        ) from exc
+
+    # Step 3: Delete document metadata from PostgreSQL.
+    try:
+        repository.delete(document)
+
+    except Exception as exc:
+        logger.exception(
+            "Failed to delete document metadata. document_id=%s",
+            document_id_str,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete document metadata.",
+        ) from exc

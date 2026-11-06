@@ -533,3 +533,275 @@ def test_list_documents_rejects_invalid_pagination():
     assert negative_skip.status_code == 422
     assert zero_limit.status_code == 422
     assert excessive_limit.status_code == 422
+
+
+def test_delete_document_success(monkeypatch):
+
+    document_id = uuid4()
+
+    db = TestingSessionLocal()
+
+    try:
+        document = Document(
+            id=document_id,
+            filename="delete-test.pdf",
+            content_type="application/pdf",
+            project_id=None,
+            status="ready",
+        )
+
+        db.add(document)
+        db.commit()
+
+    finally:
+        db.close()
+
+    file_path = Path("uploads") / f"{document_id}.pdf"
+    file_path.parent.mkdir(exist_ok=True)
+    file_path.write_bytes(b"test PDF content")
+
+    deleted_data = {}
+
+    def fake_delete_document_chunks(document_id):
+        deleted_data["document_id"] = document_id
+
+    monkeypatch.setattr(
+        "app.api.documents.vector_store.delete_document_chunks",
+        fake_delete_document_chunks,
+    )
+
+    response = client.delete(f"/documents/{document_id}")
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+    assert deleted_data["document_id"] == str(document_id)
+
+    assert not file_path.exists()
+
+    db = TestingSessionLocal()
+
+    try:
+        deleted_document = db.query(Document).filter_by(
+            id=document_id,
+        ).first()
+
+        assert deleted_document is None
+
+    finally:
+        db.close()
+
+
+def test_delete_document_returns_404_when_not_found(monkeypatch):
+    document_id = uuid4()
+
+    def fake_delete_document_chunks(document_id):
+        raise AssertionError(
+            "Qdrant should not be called for a missing document."
+        )
+
+    monkeypatch.setattr(
+        "app.api.documents.vector_store.delete_document_chunks",
+        fake_delete_document_chunks,
+    )
+
+    response = client.delete(f"/documents/{document_id}")
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Document not found."
+    }
+
+
+def test_delete_document_returns_500_when_qdrant_fails(monkeypatch):
+    document_id = uuid4()
+
+    db = TestingSessionLocal()
+
+    try:
+        document = Document(
+            id=document_id,
+            filename="qdrant-failure.pdf",
+            content_type="application/pdf",
+            project_id=None,
+            status="ready",
+        )
+        db.add(document)
+        db.commit()
+    finally:
+        db.close()
+
+    file_path = Path("uploads") / f"{document_id}.pdf"
+    file_path.parent.mkdir(exist_ok=True)
+    file_path.write_bytes(b"test PDF content")
+
+    def fake_delete_document_chunks(document_id):
+        raise RuntimeError("Qdrant unavailable")
+
+    monkeypatch.setattr(
+        "app.api.documents.vector_store.delete_document_chunks",
+        fake_delete_document_chunks,
+    )
+
+    test_client = TestClient(
+        app,
+        raise_server_exceptions=False,
+    )
+
+    response = test_client.delete(f"/documents/{document_id}")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Failed to delete document vectors."
+    }
+
+    assert file_path.exists()
+
+    db = TestingSessionLocal()
+
+    try:
+        document = db.query(Document).filter_by(
+            id=document_id,
+        ).first()
+
+        assert document is not None
+        assert document.status == "ready"
+    finally:
+        db.close()
+
+    file_path.unlink(missing_ok=True)
+
+
+def test_delete_document_returns_500_when_file_deletion_fails(
+    monkeypatch,
+    tmp_path,
+):
+    document_id = uuid4()
+
+    db = TestingSessionLocal()
+
+    try:
+        document = Document(
+            id=document_id,
+            filename="file-failure.pdf",
+            content_type="application/pdf",
+            project_id=None,
+            status="ready",
+        )
+        db.add(document)
+        db.commit()
+    finally:
+        db.close()
+
+    file_path = tmp_path / f"{document_id}.pdf"
+    file_path.write_bytes(b"test PDF content")
+
+    monkeypatch.setattr(
+        "app.api.documents.UPLOAD_DIR",
+        tmp_path,
+    )
+
+    monkeypatch.setattr(
+        "app.api.documents.vector_store.delete_document_chunks",
+        lambda document_id: None,
+    )
+
+    def fake_unlink(*args, **kwargs):
+        raise OSError("Permission denied")
+
+    monkeypatch.setattr(Path, "unlink", fake_unlink)
+
+    test_client = TestClient(
+        app,
+        raise_server_exceptions=False,
+    )
+
+    response = test_client.delete(f"/documents/{document_id}")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Failed to delete document file."
+    }
+
+    db = TestingSessionLocal()
+
+    try:
+        document = db.query(Document).filter_by(
+            id=document_id,
+        ).first()
+
+        assert document is not None
+        assert document.status == "ready"
+    finally:
+        db.close()
+
+
+def test_delete_document_returns_500_when_database_deletion_fails(
+    monkeypatch,
+    tmp_path,
+):
+    document_id = uuid4()
+
+    db = TestingSessionLocal()
+
+    try:
+        document = Document(
+            id=document_id,
+            filename="database-failure.pdf",
+            content_type="application/pdf",
+            project_id=None,
+            status="ready",
+        )
+        db.add(document)
+        db.commit()
+    finally:
+        db.close()
+
+    file_path = tmp_path / f"{document_id}.pdf"
+    file_path.write_bytes(b"test PDF content")
+
+    monkeypatch.setattr(
+        "app.api.documents.UPLOAD_DIR",
+        tmp_path,
+    )
+
+    monkeypatch.setattr(
+        "app.api.documents.vector_store.delete_document_chunks",
+        lambda document_id: None,
+    )
+
+    def fake_delete(self, document):
+        raise RuntimeError("Database deletion failed")
+
+    monkeypatch.setattr(
+        "app.api.documents.DocumentRepository.delete",
+        fake_delete,
+    )
+
+    test_client = TestClient(
+        app,
+        raise_server_exceptions=False,
+    )
+
+    response = test_client.delete(f"/documents/{document_id}")
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Failed to delete document metadata."
+    }
+
+    # Qdrant deletion was successful, so the PDF is already removed.
+    assert not file_path.exists()
+
+    # Database metadata must remain.
+    db = TestingSessionLocal()
+
+    try:
+        document = db.query(Document).filter_by(
+            id=document_id,
+        ).first()
+
+        assert document is not None
+        assert document.status == "ready"
+    finally:
+        db.close()

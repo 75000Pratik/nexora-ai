@@ -158,3 +158,53 @@ def test_list_documents_supports_pagination(db_session):
 
     assert total == 5
     assert len(result) == 2
+
+def test_delete_removes_document(db_session: Session):
+    document = Document(
+        id=uuid4(),
+        filename="delete-me.pdf",
+        content_type="application/pdf",
+        project_id=None,
+        status="ready",
+    )
+
+    db_session.add(document)
+    db_session.commit()
+
+    repository = DocumentRepository(db_session)
+    repository.delete(document)
+
+    result = repository.get_by_id(document.id)
+
+    assert result is None
+
+
+def test_delete_does_not_affect_other_documents(
+    db_session: Session,
+):
+    document_to_delete = Document(
+        id=uuid4(),
+        filename="delete-me.pdf",
+        content_type="application/pdf",
+        project_id=None,
+        status="ready",
+    )
+
+    document_to_keep = Document(
+        id=uuid4(),
+        filename="keep-me.pdf",
+        content_type="application/pdf",
+        project_id=None,
+        status="ready",
+    )
+
+    db_session.add_all([document_to_delete, document_to_keep])
+    db_session.commit()
+
+    repository = DocumentRepository(db_session)
+    repository.delete(document_to_delete)
+
+    result = repository.get_by_id(document_to_keep.id)
+
+    assert result is not None
+    assert result.filename == "keep-me.pdf"

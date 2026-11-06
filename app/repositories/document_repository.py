@@ -40,6 +40,14 @@ class DocumentRepository:
     def get_by_id(self, document_id: UUID) -> Document | None:
         return self.db.get(Document, document_id)
 
+    def delete(self, document: Document) -> None:
+        try:
+            self.db.delete(document)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
     def list_documents(
         self,
         skip: int = 0,
