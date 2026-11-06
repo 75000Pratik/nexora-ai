@@ -26,11 +26,13 @@ class AnswerService:
         query: str,
         limit: int = 3,
         document_id: str | None = None,
+        project_id: str | None = None,
     ) -> AskResponse:
         results = self.retrieval_service.retrieve(
             query=query,
             limit=limit,
             document_id=document_id,
+            project_id=project_id,
         )
 
         results = [

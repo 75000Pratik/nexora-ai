@@ -35,7 +35,7 @@ def test_answer_filters_low_scoring_results(monkeypatch):
     )
 
     service.validation_service.is_supported = Mock(
-        return_value = True
+        return_value=True
     )
 
     monkeypatch.setattr(
@@ -55,6 +55,7 @@ def test_answer_filters_low_scoring_results(monkeypatch):
     assert "Amazon Bedrock" in prompt
     assert "A separate project used Amazon EMR." not in prompt
 
+
 def test_answer_does_not_claim_unsupported_project_details(monkeypatch):
     service = AnswerService()
 
@@ -66,7 +67,7 @@ def test_answer_does_not_claim_unsupported_project_details(monkeypatch):
                 "The RAG pipeline used Amazon Bedrock. "
                 "A separate project used Amazon EMR and Amazon EKS."
             ),
-            score = 5.7,
+            score=5.7,
             start_char=0,
             end_char=100,
         ),
@@ -89,10 +90,30 @@ def test_answer_does_not_claim_unsupported_project_details(monkeypatch):
     )
 
     response = service.answer(
-        query = "Which service did the RAG pipeline use?"
+        query="Which service did the RAG pipeline use?"
     )
 
     assert "Amazon Bedrock" not in response.answer
     assert "Amazon EMR" not in response.answer
     assert "Amazon EKS" not in response.answer
     assert "couldn't verify" in response.answer
+
+
+def test_answer_passes_project_id_to_retrieval():
+    service = AnswerService()
+
+    service.retrieval_service.retrieve = Mock(
+        return_value=[]
+    )
+
+    service.answer(
+        query="What does this project contain?",
+        project_id="project-123",
+    )
+
+    service.retrieval_service.retrieve.assert_called_once_with(
+        query="What does this project contain?",
+        limit=3,
+        document_id=None,
+        project_id="project-123",
+    )
