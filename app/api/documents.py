@@ -8,6 +8,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Request,
     UploadFile,
     status,
 )
@@ -43,8 +44,8 @@ router = APIRouter(
     tags=["documents"],
 )
 
-
 UPLOAD_DIR = Path("uploads")
+
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -62,10 +63,29 @@ vector_store.ensure_collection()
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     project_id: str | None = Form(default=None),
     db: Session = Depends(get_db),
 ) -> DocumentResponse:
+
+    form_data = await request.form()
+    raw_project_id = form_data.get("project_id")
+
+    if raw_project_id is not None and not str(raw_project_id).strip():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Project ID cannot be empty.",
+        )
+
+    if project_id is not None:
+        project_id = project_id.strip()
+
+        if len(project_id) > 100:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Project ID cannot exceed 100 characters.",
+            )
 
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(

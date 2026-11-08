@@ -805,3 +805,62 @@ def test_delete_document_returns_500_when_database_deletion_fails(
         assert document.status == "ready"
     finally:
         db.close()
+
+
+def test_upload_rejects_empty_project_id_string():
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "test.pdf",
+                create_test_pdf(),
+                "application/pdf",
+            )
+        },
+        data={
+            "project_id": "",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Project ID cannot be empty."
+
+
+def test_upload_rejects_empty_project_id():
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "test.pdf",
+                create_test_pdf(),
+                "application/pdf",
+            )
+        },
+        data={
+            "project_id": "   ",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Project ID cannot be empty."
+
+
+def test_upload_rejects_project_id_longer_than_100_characters():
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "test.pdf",
+                create_test_pdf(),
+                "application/pdf",
+            )
+        },
+        data={
+            "project_id": "p" * 101,
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "Project ID cannot exceed 100 characters."
+    )
