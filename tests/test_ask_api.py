@@ -46,7 +46,21 @@ def test_ask_endpoint_passes_project_id(monkeypatch):
     assert body["sources"] == []
 
 
-def test_ask_endpoint_returns_501_for_general_route():
+def test_ask_endpoint_returns_general_answer(monkeypatch):
+    def fake_answer(query: str):
+        assert query == "What is Python?"
+
+        return AskResponse(
+            query=query,
+            answer="Python is a programming language.",
+            sources=[],
+        )
+
+    monkeypatch.setattr(
+        "app.api.ask.general_answer_service.answer",
+        fake_answer,
+    )
+
     response = client.post(
         "/ask",
         json={
@@ -55,10 +69,13 @@ def test_ask_endpoint_returns_501_for_general_route():
         },
     )
 
-    assert response.status_code == 501
-    assert response.json()["detail"] == (
-        "General Routing is not implemented yet"
-    )
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["query"] == "What is Python?"
+    assert body["answer"] == "Python is a programming language."
+    assert body["sources"] == []
 
 
 def test_project_id_overrides_general_route(monkeypatch):

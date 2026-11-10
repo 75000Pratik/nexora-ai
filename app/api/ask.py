@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException
 from app.schemas.answer import AskRequest, AskResponse
 from app.services.answer_service import AnswerService
 from app.services.agent_router import AgentRoute, AgentRouter
+from app.services.general_answer_service import GeneralAnswerService
 
 router = APIRouter(
     prefix="/ask",
@@ -11,6 +12,7 @@ router = APIRouter(
 
 answer_service = AnswerService()
 agent_router = AgentRouter()
+general_answer_service = GeneralAnswerService()
 
 
 @router.post(
@@ -35,7 +37,12 @@ def ask_question(
             project_id=request.project_id,
         )
 
+    if selected_route == AgentRoute.GENERAL:
+        return general_answer_service.answer(
+            query=request.query,
+        )
+
     raise HTTPException(
         status_code=501,
-        detail="General Routing is not implemented yet",
+        detail="Requested route is not implemented yet",
     )
