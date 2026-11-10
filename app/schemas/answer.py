@@ -1,5 +1,6 @@
 
 from pydantic import BaseModel, Field
+from app.services.agent_router import AgentRoute
 
 
 class AskRequest(BaseModel):
@@ -9,6 +10,7 @@ class AskRequest(BaseModel):
     )
     document_id: str | None = None
     project_id: str | None = None
+    route: AgentRoute = AgentRoute.DOCUMENT_QA
     limit: int = Field(
         default=3,
         ge=1,
