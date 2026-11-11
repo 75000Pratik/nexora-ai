@@ -1,5 +1,9 @@
 from fastapi.testclient import TestClient
 
+from app.core.exceptions import (
+    LLMServiceError,
+    LLMServiceTimeoutError,
+)
 from app.main import app
 from app.schemas.answer import AskResponse
 
@@ -142,3 +146,49 @@ def test_document_id_overrides_general_route(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["answer"] == "Document-scoped answer."
+
+
+def test_ask_endpoint_returns_502_for_llm_error(monkeypatch):
+    def fake_answer(query: str):
+        raise LLMServiceError("Internal provider connection details")
+
+    monkeypatch.setattr(
+        "app.api.ask.general_answer_service.answer",
+        fake_answer,
+    )
+
+    response = client.post(
+        "/ask",
+        json={
+            "query": "What is Python?",
+            "route": "general",
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "The AI service is temporarily unavailable."
+    }
+
+
+def test_ask_endpoint_returns_504_for_llm_timeout(monkeypatch):
+    def fake_answer(query: str):
+        raise LLMServiceTimeoutError("Internal timeout details")
+
+    monkeypatch.setattr(
+        "app.api.ask.general_answer_service.answer",
+        fake_answer,
+    )
+
+    response = client.post(
+        "/ask",
+        json={
+            "query": "What is Python?",
+            "route": "general",
+        },
+    )
+
+    assert response.status_code == 504
+    assert response.json() == {
+        "detail": "The AI service request timed out. Please try again."
+    }
