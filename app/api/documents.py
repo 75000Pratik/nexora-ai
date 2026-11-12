@@ -93,12 +93,18 @@ async def upload_document(
             detail="Only PDF files are supported.",
         )
 
-    content = await file.read()
+    content = await file.read(MAX_FILE_SIZE + 1)
 
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="File size exceeds the 10 MB limit.",
+        )
+
+    if b"%PDF-" not in content[:1024]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is not a valid PDF.",
         )
 
     if not file.filename:

@@ -73,6 +73,46 @@ def test_reject_non_pdf_upload():
     }
 
 
+def test_reject_fake_pdf_upload():
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "fake.pdf",
+                b"This is not a real PDF file.",
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Uploaded file is not a valid PDF."
+    }
+
+
+def test_reject_upload_exceeding_max_file_size():
+    oversized_content = b"%PDF-" + (
+        b"A" * (10 * 1024 * 1024)
+    )
+
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "large.pdf",
+                oversized_content,
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {
+        "detail": "File size exceeds the 10 MB limit."
+    }
+
+
 def test_reject_pdf_without_extractable_text():
     pdf_bytes = create_test_pdf()
 
