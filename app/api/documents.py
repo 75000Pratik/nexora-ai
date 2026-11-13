@@ -14,7 +14,10 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limiter import limiter
+
 from app.repositories.document_repository import DocumentRepository
 from app.schemas.document import (
     DocumentListResponse,
@@ -62,6 +65,7 @@ vector_store.ensure_collection()
     response_model=DocumentResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit(settings.upload_rate_limit)
 async def upload_document(
     request: Request,
     file: UploadFile = File(...),

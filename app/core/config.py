@@ -6,6 +6,9 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     environment: str = "development"
     reranking_min_score: float = 0.0
+    ask_rate_limit: str = "10/minute"
+    search_rate_limit: str = "20/minute"
+    upload_rate_limit: str = "5/minute"
 
     database_url: str
 

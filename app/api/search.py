@@ -1,5 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
+from app.core.config import settings
+from app.core.rate_limiter import limiter
 from app.schemas.search import SearchRequest, SearchResponse
 from app.services.hybrid_retrieval_service import HybridRetrievalService
 
@@ -16,17 +18,19 @@ retrieval_service = HybridRetrievalService()
     "",
     response_model=SearchResponse,
 )
+@limiter.limit(settings.search_rate_limit)
 def search_documents(
-    request: SearchRequest,
+    request: Request,
+    body: SearchRequest,
 ) -> SearchResponse:
     results = retrieval_service.retrieve(
-        query=request.query,
-        limit=request.limit,
-        document_id=request.document_id,
-        project_id=request.project_id,
+        query=body.query,
+        limit=body.limit,
+        document_id=body.document_id,
+        project_id=body.project_id,
     )
 
     return SearchResponse(
-        query=request.query,
+        query=body.query,
         results=results,
     )
