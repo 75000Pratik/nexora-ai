@@ -1,7 +1,8 @@
-
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+
+import pytest
 
 from fastapi.testclient import TestClient
 from pypdf import PdfWriter
@@ -10,6 +11,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
+from app.core.dependencies import get_current_user
+from app.models.user import User
 from app.schemas.chunk import DocumentChunk
 from app.core.database import Base, get_db
 from app.models.document import Document
@@ -40,7 +43,30 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
+TEST_USER_ID = uuid4()
+
+
+def override_get_current_user():
+    return User(
+        id=TEST_USER_ID,
+        email="upload-test@example.com",
+        password_hash="test-password-hash",
+        is_active=True,
+    )
+
+
+@pytest.fixture(autouse=True)
+def override_dependencies():
+    original_overrides = app.dependency_overrides.copy()
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_db] = override_get_db
+
+    yield
+
+    app.dependency_overrides.clear()
+    app.dependency_overrides.update(original_overrides)
+
 
 client = TestClient(app)
 
@@ -490,6 +516,7 @@ def test_get_document_by_id():
     try:
         document = Document(
             id=document_id,
+            user_id=TEST_USER_ID,
             filename="lookup-test.pdf",
             content_type="application/pdf",
             project_id=None,
@@ -584,6 +611,7 @@ def test_delete_document_success(monkeypatch):
     try:
         document = Document(
             id=document_id,
+            user_id=TEST_USER_ID,
             filename="delete-test.pdf",
             content_type="application/pdf",
             project_id=None,
@@ -661,6 +689,7 @@ def test_delete_document_returns_500_when_qdrant_fails(monkeypatch):
     try:
         document = Document(
             id=document_id,
+            user_id=TEST_USER_ID,
             filename="qdrant-failure.pdf",
             content_type="application/pdf",
             project_id=None,
@@ -723,6 +752,7 @@ def test_delete_document_returns_500_when_file_deletion_fails(
     try:
         document = Document(
             id=document_id,
+            user_id=TEST_USER_ID,
             filename="file-failure.pdf",
             content_type="application/pdf",
             project_id=None,
@@ -787,6 +817,7 @@ def test_delete_document_returns_500_when_database_deletion_fails(
     try:
         document = Document(
             id=document_id,
+            user_id=TEST_USER_ID,
             filename="database-failure.pdf",
             content_type="application/pdf",
             project_id=None,

@@ -1,8 +1,37 @@
+from uuid import uuid4
+
+from app.core.dependencies import get_current_user
+from app.models.user import User
 from fastapi.testclient import TestClient
 
 from app.core.rate_limiter import limiter
 from app.main import app
 from app.schemas.answer import AskResponse
+
+TEST_USER_ID = uuid4()
+
+
+def override_get_current_user():
+    return User(
+        id=TEST_USER_ID,
+        email="rate-limit-test@example.com",
+        password_hash="test-password-hash",
+        is_active=True,
+    )
+
+import pytest
+
+@pytest.fixture(autouse=True)
+def override_dependencies():
+    original_overrides = app.dependency_overrides.copy()
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    try:
+        yield
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(original_overrides)
 
 client = TestClient(app)
 

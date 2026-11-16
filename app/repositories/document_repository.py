@@ -14,6 +14,7 @@ class DocumentRepository:
     def create(
         self,
         document_id: UUID,
+        user_id: UUID,
         filename: str,
         content_type: str,
         project_id: str | None = None,
@@ -21,6 +22,7 @@ class DocumentRepository:
     ) -> Document:
         document = Document(
             id=document_id,
+            user_id=user_id,
             filename=filename,
             content_type=content_type,
             project_id=project_id,
@@ -37,8 +39,16 @@ class DocumentRepository:
 
         return document
 
-    def get_by_id(self, document_id: UUID) -> Document | None:
-        return self.db.get(Document, document_id)
+    def get_by_id(
+        self,
+        document_id: UUID,
+        user_id: UUID,
+    ) -> Document | None:
+        query = select(Document).where(
+            Document.id == document_id,
+            Document.user_id == user_id,
+        )
+        return self.db.scalar(query)
 
     def delete(self, document: Document) -> None:
         try:
@@ -50,12 +60,14 @@ class DocumentRepository:
 
     def list_documents(
         self,
+        user_id: UUID,
         skip: int = 0,
         limit: int = 20,
         status: DocumentStatus | None = None,
     ) -> tuple[list[Document], int]:
 
         query = select(Document)
+        query = query.where(Document.user_id == user_id)
 
         """Return pagination documents and the total matching count."""
 

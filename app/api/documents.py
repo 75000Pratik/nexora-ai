@@ -15,8 +15,10 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.dependencies import get_current_user
 from app.core.database import get_db
 from app.core.rate_limiter import limiter
+from app.models.user import User
 
 from app.repositories.document_repository import DocumentRepository
 from app.schemas.document import (
@@ -71,6 +73,7 @@ async def upload_document(
     file: UploadFile = File(...),
     project_id: str | None = Form(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> DocumentResponse:
 
     form_data = await request.form()
@@ -160,6 +163,7 @@ async def upload_document(
     try:
         document = repository.create(
             document_id=document_uuid,
+            user_id=current_user.id,
             filename=file.filename,
             content_type=file.content_type,
             project_id=project_id,
@@ -232,10 +236,14 @@ async def upload_document(
 def get_document(
     document_id: UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> DocumentResponse:
     repository = DocumentRepository(db)
 
-    document = repository.get_by_id(document_id)
+    document = repository.get_by_id(
+        document_id,
+        user_id=current_user.id,
+    )
 
     if document is None:
         raise HTTPException(
@@ -260,6 +268,7 @@ def list_documents(
     limit: int = 20,
     document_status: DocumentStatus | None = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> DocumentListResponse:
     if skip < 0:
         raise HTTPException(
@@ -276,6 +285,7 @@ def list_documents(
     repository = DocumentRepository(db)
 
     documents, total = repository.list_documents(
+        user_id=current_user.id,
         skip=skip,
         limit=limit,
         status=document_status,
@@ -304,10 +314,14 @@ def list_documents(
 def delete_document(
     document_id: UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
     repository = DocumentRepository(db)
 
-    document = repository.get_by_id(document_id)
+    document = repository.get_by_id(
+        document_id,
+        user_id=current_user.id,
+    )
 
     if document is None:
         raise HTTPException(

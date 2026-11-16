@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+
 
 class Document(Base):
     __tablename__ = "documents"
@@ -14,6 +15,12 @@ class Document(Base):
         default=uuid.uuid4,
     )
 
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
+
     filename: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
@@ -21,18 +28,18 @@ class Document(Base):
 
     content_type: Mapped[str] = mapped_column(
         String(100),
-        nullable = False,
+        nullable=False,
     )
 
     project_id: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
-        index= True,
+        index=True,
     )
 
     status: Mapped[str] = mapped_column(
         String(20),
-        nullable = False,
+        nullable=False,
         default="uploaded",
     )
 
