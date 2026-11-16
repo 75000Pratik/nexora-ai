@@ -1,3 +1,4 @@
+from app.api.auth import router as auth_router
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
@@ -57,3 +58,4 @@ app.include_router(health_router)
 app.include_router(documents_router)
 app.include_router(search_router)
 app.include_router(ask_router)
+app.include_router(auth_router)

@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     ask_rate_limit: str = "10/minute"
     search_rate_limit: str = "20/minute"
     upload_rate_limit: str = "5/minute"
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
 
     database_url: str
 
