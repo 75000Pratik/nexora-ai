@@ -1,3 +1,4 @@
+from uuid import uuid4
 from app.services.evaluation_service import (
     precision_at_k,
     recall_at_k,
@@ -10,6 +11,7 @@ from tests.evaluation_dataset import EVALUATION_DATASET
 
 def test_hybrid_retrieval_evaluation():
     service = HybridRetrievalService()
+    user_id = uuid4()
     k = 3
 
     baseline_metrics = {
@@ -33,6 +35,7 @@ def test_hybrid_retrieval_evaluation():
         ]:
             results = service.retrieve(
                 query=case["query"],
+                user_id=user_id,
                 limit=k,
                 document_id=None,
                 apply_reranking=apply_reranking,

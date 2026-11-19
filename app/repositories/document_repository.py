@@ -50,6 +50,18 @@ class DocumentRepository:
         )
         return self.db.scalar(query)
 
+    def has_documents_for_project(
+        self,
+        project_id: str,
+        user_id: UUID,
+    ) -> bool:
+        query = select(Document.id).where(
+            Document.project_id == project_id,
+            Document.user_id == user_id,
+        )
+
+        return self.db.scalar(query) is not None
+
     def delete(self, document: Document) -> None:
         try:
             self.db.delete(document)

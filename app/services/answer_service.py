@@ -1,4 +1,4 @@
-
+from uuid import UUID
 from app.schemas.answer import (
     AnswerSource,
     AskResponse,
@@ -23,12 +23,14 @@ class AnswerService:
 
     def answer(
         self,
+        user_id: UUID,
         query: str,
         limit: int = 3,
         document_id: str | None = None,
         project_id: str | None = None,
     ) -> AskResponse:
         results = self.retrieval_service.retrieve(
+            user_id=user_id,
             query=query,
             limit=limit,
             document_id=document_id,

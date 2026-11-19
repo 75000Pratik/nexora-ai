@@ -16,6 +16,7 @@ from app.models.user import User
 from app.schemas.chunk import DocumentChunk
 from app.core.database import Base, get_db
 from app.models.document import Document
+from app.models.project import Project
 from app.schemas.document import DocumentStatus
 
 
@@ -162,6 +163,22 @@ def test_reject_pdf_without_extractable_text():
 def test_upload_document_with_project_id(monkeypatch):
     stored_data = {}
 
+    db = TestingSessionLocal()
+
+    project = Project(
+        id=uuid4(),
+        user_id=TEST_USER_ID,
+        name="Upload Test Project",
+        description="Project for upload testing",
+    )
+
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    project_id = str(project.id)
+    db.close()
+
     def fake_extract_text(file_path):
         return "This is test document content."
 
@@ -180,11 +197,13 @@ def test_upload_document_with_project_id(monkeypatch):
 
     def fake_store_document_chunks(
         document_id,
+        user_id,
         chunks,
         embeddings,
         project_id=None,
     ):
         stored_data["document_id"] = document_id
+        stored_data["user_id"] = user_id
         stored_data["project_id"] = project_id
         stored_data["chunks"] = chunks
 
@@ -211,13 +230,13 @@ def test_upload_document_with_project_id(monkeypatch):
             )
         },
         data={
-            "project_id": "project-a",
+            "project_id": project_id,
         },
     )
 
     assert response.status_code == 201
     assert response.json()["filename"] == "test.pdf"
-    assert stored_data["project_id"] == "project-a"
+    assert stored_data["project_id"] == project_id
     assert len(stored_data["chunks"]) == 1
 
     db = TestingSessionLocal()
@@ -225,7 +244,7 @@ def test_upload_document_with_project_id(monkeypatch):
     try:
         document = db.query(Document).filter_by(
             filename="test.pdf",
-            project_id="project-a",
+            project_id=project_id,
         ).first()
 
         assert document is not None
@@ -914,6 +933,62 @@ def test_upload_rejects_empty_project_id():
 
     assert response.status_code == 422
     assert response.json()["detail"] == "Project ID cannot be empty."
+
+
+def test_upload_rejects_invalid_project_uuid():
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "test.pdf",
+                create_test_pdf(),
+                "application/pdf",
+            )
+        },
+        data={
+            "project_id": "not-a-valid-uuid",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Invalid project ID."
+
+
+def test_upload_rejects_another_users_project():
+    db = TestingSessionLocal()
+
+    another_user_id = uuid4()
+
+    project = Project(
+        id=uuid4(),
+        user_id=another_user_id,
+        name="Another User Project",
+        description="This project belongs to another user.",
+    )
+
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    project_id = str(project.id)
+    db.close()
+
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "test.pdf",
+                create_test_pdf(),
+                "application/pdf",
+            )
+        },
+        data={
+            "project_id": project_id,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Project not found."
 
 
 def test_upload_rejects_project_id_longer_than_100_characters():

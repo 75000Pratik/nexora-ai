@@ -1,9 +1,11 @@
+from uuid import uuid4
 from types import SimpleNamespace
 
 from app.schemas.retrieval import RetrievalResult
 from app.services.hybrid_retrieval_service import HybridRetrievalService
 
 DOCUMENT_ID = "test-document-123"
+TEST_USER_ID = uuid4()
 
 
 def make_record(
@@ -14,6 +16,7 @@ def make_record(
     return SimpleNamespace(
         payload={
             "document_id": DOCUMENT_ID,
+            "user_id": str(TEST_USER_ID),
             "project_id": project_id,
             "chunk_index": chunk_index,
             "text": text,
@@ -28,11 +31,21 @@ class FakeVectorStore:
         self.records = records
         self.requested_document_id = None
 
-    def get_chunks(self, document_id=None, project_id=None):
+    def get_chunks(
+            self,
+            user_id,
+            document_id=None,
+            project_id=None
+    ):
         self.requested_document_id = document_id
+        self.requested_user_id = user_id
         self.requested_project_id = project_id
 
         records = self.records
+        records = [
+            record for record in records
+            if record.payload.get("user_id") == str(user_id)
+        ]
 
         if document_id is not None:
             records = [
@@ -54,8 +67,9 @@ class FakeDenseRetrieval:
         self.results = results
         self.was_called = False
 
-    def retrieve(self, query, limit=3, document_id=None, project_id=None):
+    def retrieve(self, user_id, query, limit=3, document_id=None, project_id=None):
         self.was_called = True
+        self.requested_user_id = user_id
         self.requested_project_id = project_id
         return self.results[:limit]
 
@@ -112,6 +126,7 @@ def test_hybrid_retrieval_combining_rankings():
     service.reranking_service = FakeRerankingService()
 
     results = service.retrieve(
+        user_id=TEST_USER_ID,
         query="AWS Glue ETL pipelines",
         limit=2,
         document_id=DOCUMENT_ID,
@@ -131,6 +146,7 @@ def test_hybrid_retrieval_returns_empty_when_no_chunk_exist():
     service.dense_retrieval = FakeDenseRetrieval([])
 
     results = service.retrieve(
+        user_id=TEST_USER_ID,
         query="AWS Glue",
         document_id="missing-document",
     )
@@ -150,6 +166,7 @@ def test_hybrid_retrieval_returns_empty_when_no_candidates_match():
     service.reranking_service = FakeRerankingService()
 
     results = service.retrieve(
+        user_id=TEST_USER_ID,
         query="unrelatedxyzquery123",
         limit=3,
         document_id=DOCUMENT_ID
@@ -167,6 +184,7 @@ def test_hybrid_retrieval_filters_chunks_by_document_id():
         SimpleNamespace(
             payload={
                 "document_id": other_document_id,
+                "user_id": str(TEST_USER_ID),
                 "chunk_index": 1,
                 "text": "AWS Glue data engineering",
                 "start_char": 100,
@@ -181,6 +199,7 @@ def test_hybrid_retrieval_filters_chunks_by_document_id():
     service.reranking_service = FakeRerankingService()
 
     results = service.retrieve(
+        user_id=TEST_USER_ID,
         query="AWS Glue ETL pipelines",
         limit=3,
         document_id=DOCUMENT_ID,
@@ -230,6 +249,7 @@ def test_hybrid_retrieval_can_disable_reranking():
     service.reranking_service = FailingRerankingService()
 
     results = service.retrieve(
+        user_id=TEST_USER_ID,
         query="AWS Glue ETL pipelines",
         limit=2,
         document_id=DOCUMENT_ID,
@@ -272,6 +292,7 @@ def test_hybrid_retrieval_reranking_changes_result_order():
     service.reranking_service = FakeRerankingService()
 
     baseline = service.retrieve(
+        user_id=TEST_USER_ID,
         query="AWS Glue ETL pipelines",
         limit=2,
         document_id=DOCUMENT_ID,
@@ -279,6 +300,7 @@ def test_hybrid_retrieval_reranking_changes_result_order():
     )
 
     reranked = service.retrieve(
+        user_id=TEST_USER_ID,
         query="AWS Glue ETL pipelines",
         limit=2,
         document_id=DOCUMENT_ID,
@@ -313,6 +335,7 @@ def test_hybrid_retrieval_filters_chunks_by_project_id():
     service.reranking_service = FakeRerankingService()
 
     results = service.retrieve(
+        user_id=TEST_USER_ID,
         query="AWS Glue ETL pipelines",
         limit=3,
         project_id="project-a",

@@ -1,3 +1,4 @@
+from uuid import UUID
 from app.services.embedding_service import EmbeddingService
 from app.services.vector_store_service import VectorStoreService
 from app.schemas.retrieval import RetrievalResult
@@ -9,6 +10,7 @@ class RetrievalService:
 
     def retrieve(
             self,
+            user_id: UUID,
             query: str,
             limit: int = 3,
             document_id: str | None = None,
@@ -18,6 +20,7 @@ class RetrievalService:
 
         results = self.vector_store.search(
             query_vector = query_vector,
+            user_id=user_id,
             limit = limit,
             document_id = document_id,
             project_id = project_id,

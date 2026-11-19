@@ -13,6 +13,7 @@ from app.api.ask import router as ask_router
 from app.api.documents import router as documents_router
 from app.api.health import router as health_router
 from app.core.config import settings
+from app.api.projects import router as projects_router
 from app.api.search import router as search_router
 
 
@@ -59,3 +60,4 @@ app.include_router(documents_router)
 app.include_router(search_router)
 app.include_router(ask_router)
 app.include_router(auth_router)
+app.include_router(projects_router)

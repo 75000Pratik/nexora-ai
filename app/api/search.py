@@ -1,3 +1,12 @@
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.dependencies import get_current_user
+from app.models.user import User
+from app.repositories.document_repository import DocumentRepository
+from app.repositories.project_repository import ProjectRepository
+from uuid import UUID
 from fastapi import APIRouter, Request
 
 from app.core.config import settings
@@ -22,8 +31,30 @@ retrieval_service = HybridRetrievalService()
 def search_documents(
     request: Request,
     body: SearchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> SearchResponse:
+    if body.document_id is not None:
+        try:
+            document_uuid = UUID(body.document_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=404,
+                detail="Document not found.",
+            )
+
+        document = DocumentRepository(db).get_by_id(
+            document_id=document_uuid,
+            user_id=current_user.id,
+        )
+
+        if document is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Document not found.",
+            )
     results = retrieval_service.retrieve(
+        user_id=current_user.id,
         query=body.query,
         limit=body.limit,
         document_id=body.document_id,

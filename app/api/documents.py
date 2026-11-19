@@ -21,6 +21,7 @@ from app.core.rate_limiter import limiter
 from app.models.user import User
 
 from app.repositories.document_repository import DocumentRepository
+from app.repositories.project_repository import ProjectRepository
 from app.schemas.document import (
     DocumentListResponse,
     DocumentResponse,
@@ -94,6 +95,25 @@ async def upload_document(
                 detail="Project ID cannot exceed 100 characters.",
             )
 
+    if project_id is not None:
+        try:
+            project_uuid = UUID(project_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Invalid project ID.",
+            )
+
+        project = ProjectRepository(db).get_by_id(
+            project_id=project_uuid,
+            user_id=current_user.id,
+        )
+
+        if project is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Project not found.",
+            )
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
@@ -180,6 +200,7 @@ async def upload_document(
     try:
         vector_store.store_document_chunks(
             document_id=document_id,
+            user_id=current_user.id,
             chunks=chunks,
             embeddings=embeddings,
             project_id=project_id,

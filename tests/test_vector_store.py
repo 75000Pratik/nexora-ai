@@ -1,11 +1,14 @@
+
 import pytest
 
+from uuid import uuid4
 from app.schemas.chunk import DocumentChunk
 from app.services.vector_store_service import VectorStoreService
 
 
 def test_store_document_chunks_rejects_length_mismatch():
     service = VectorStoreService()
+    user_id = uuid4()
 
     chunks = [
         DocumentChunk(
@@ -21,6 +24,7 @@ def test_store_document_chunks_rejects_length_mismatch():
     with pytest.raises(ValueError):
         service.store_document_chunks(
             document_id="123e4567-e89b-12d3-a456-426614174000",
+            user_id=user_id,
             chunks=chunks,
             embeddings=embeddings,
         )

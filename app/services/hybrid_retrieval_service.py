@@ -1,4 +1,4 @@
-
+from uuid import UUID
 from app.schemas.retrieval import RetrievalResult
 from app.services.bm25_service import BM25Service
 from app.services.fusion_service import reciprocal_rank_fusion
@@ -14,6 +14,7 @@ class HybridRetrievalService:
 
     def retrieve(
         self,
+        user_id: UUID,
         query: str,
         limit: int = 3,
         document_id: str | None = None,
@@ -21,6 +22,7 @@ class HybridRetrievalService:
         apply_reranking: bool = True,
     ) -> list[RetrievalResult]:
         records = self.vector_store.get_chunks(
+            user_id=user_id,
             document_id=document_id,
             project_id=project_id,
         )
@@ -67,6 +69,7 @@ class HybridRetrievalService:
         ]
 
         dense_results = self.dense_retrieval.retrieve(
+            user_id=user_id,
             query=query,
             limit=candidate_limit,
             document_id=document_id,

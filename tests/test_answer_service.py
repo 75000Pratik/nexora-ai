@@ -1,8 +1,10 @@
-
+from uuid import uuid4
 from unittest.mock import Mock
 
 from app.schemas.retrieval import RetrievalResult
 from app.services.answer_service import AnswerService
+
+TEST_USER_ID = uuid4()
 
 
 def test_answer_filters_low_scoring_results(monkeypatch):
@@ -44,6 +46,7 @@ def test_answer_filters_low_scoring_results(monkeypatch):
     )
 
     response = service.answer(
+        user_id=TEST_USER_ID,
         query="Which service did the RAG pipeline use?"
     )
 
@@ -90,6 +93,7 @@ def test_answer_does_not_claim_unsupported_project_details(monkeypatch):
     )
 
     response = service.answer(
+        user_id=TEST_USER_ID,
         query="Which service did the RAG pipeline use?"
     )
 
@@ -107,11 +111,13 @@ def test_answer_passes_project_id_to_retrieval():
     )
 
     service.answer(
+        user_id=TEST_USER_ID,
         query="What does this project contain?",
         project_id="project-123",
     )
 
     service.retrieval_service.retrieve.assert_called_once_with(
+        user_id=TEST_USER_ID,
         query="What does this project contain?",
         limit=3,
         document_id=None,

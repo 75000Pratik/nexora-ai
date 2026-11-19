@@ -1,3 +1,4 @@
+import pytest
 from uuid import uuid4
 
 from app.core.dependencies import get_current_user
@@ -19,7 +20,6 @@ def override_get_current_user():
         is_active=True,
     )
 
-import pytest
 
 @pytest.fixture(autouse=True)
 def override_dependencies():
@@ -32,6 +32,7 @@ def override_dependencies():
     finally:
         app.dependency_overrides.clear()
         app.dependency_overrides.update(original_overrides)
+
 
 client = TestClient(app)
 
@@ -87,10 +88,11 @@ def test_search_endpoint_returns_429_after_rate_limit(monkeypatch):
     limiter.reset()
 
     def fake_retrieve(
-        query: str,
-        limit: int,
-        document_id: str | None = None,
-        project_id: str | None = None,
+            user_id,
+            query: str,
+            limit: int,
+            document_id: str | None = None,
+            project_id: str | None = None,
     ):
         return []
 

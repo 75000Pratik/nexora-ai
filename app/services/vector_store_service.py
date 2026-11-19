@@ -10,7 +10,7 @@ from qdrant_client.models import (
 )
 
 from app.core.config import settings
-from uuid import uuid5, NAMESPACE_URL
+from uuid import UUID, uuid5, NAMESPACE_URL
 from app.schemas.chunk import DocumentChunk
 
 Vector_Size = 384
@@ -37,6 +37,7 @@ class VectorStoreService:
     def store_document_chunks(
             self,
             document_id: str,
+            user_id: UUID,
             chunks: list[DocumentChunk],
             embeddings: list[list[float]],
             project_id: str | None = None,
@@ -60,6 +61,7 @@ class VectorStoreService:
                 vector=embedding,
                 payload={
                     "document_id": document_id,
+                    "user_id": str(user_id),
                     "project_id": project_id,
                     "chunk_index": chunk.chunk_index,
                     "text": chunk.text,
@@ -78,11 +80,18 @@ class VectorStoreService:
     def search(
             self,
             query_vector: list[float],
+            user_id: UUID,
             limit: int = 3,
             document_id: str | None = None,
             project_id: str | None = None,
     ):
         conditions = []
+        conditions.append(
+            FieldCondition(
+                key="user_id",
+                match=MatchValue(value=str(user_id)),
+            )
+        )
 
         if document_id is not None:
             conditions.append(
@@ -113,6 +122,7 @@ class VectorStoreService:
 
     def get_chunks(
         self,
+        user_id: UUID,
         document_id: str | None = None,
         project_id: str | None = None,
         batch_size: int = 256,
@@ -121,6 +131,12 @@ class VectorStoreService:
             raise ValueError("batch_size must be greater than zero")
 
         conditions = []
+        conditions.append(
+            FieldCondition(
+                key="user_id",
+                match=MatchValue(value=str(user_id)),
+            )
+        )
 
         if document_id is not None:
             conditions.append(
