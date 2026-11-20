@@ -15,9 +15,9 @@ class Document(Base):
         default=uuid.uuid4,
     )
 
-    user_id: Mapped[uuid.UUID | None] = mapped_column(
+    user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id"),
-        nullable=True,
+        nullable=False,
         index=True,
     )
 
