@@ -278,3 +278,58 @@ def test_delete_project_with_documents_returns_409(
         "Cannot delete a project that contains documents. "
         "Delete its documents first."
     )
+
+
+def test_user_cannot_delete_another_users_project(
+    client: TestClient,
+):
+    token_a = register_and_login(client, "delete-owner@example.com")
+    token_b = register_and_login(client, "delete-other@example.com")
+
+    create_response = client.post(
+        "/projects",
+        headers={"Authorization": f"Bearer {token_a}"},
+        json={"name": "Protected Project"},
+    )
+
+    assert create_response.status_code == 201
+
+    project_id = create_response.json()["id"]
+
+    response = client.delete(
+        f"/projects/{project_id}",
+        headers={"Authorization": f"Bearer {token_b}"},
+    )
+
+    assert response.status_code == 404
+
+    owner_response = client.get(
+        f"/projects/{project_id}",
+        headers={"Authorization": f"Bearer {token_a}"},
+    )
+
+    assert owner_response.status_code == 200
+
+
+def test_different_users_can_create_projects_with_same_name(
+    client: TestClient,
+):
+    token_a = register_and_login(client, "same-name-a@example.com")
+    token_b = register_and_login(client, "same-name-b@example.com")
+
+    response_a = client.post(
+        "/projects",
+        headers={"Authorization": f"Bearer {token_a}"},
+        json={"name": "Knowledge Base"},
+    )
+
+    response_b = client.post(
+        "/projects",
+        headers={"Authorization": f"Bearer {token_b}"},
+        json={"name": "Knowledge Base"},
+    )
+
+    assert response_a.status_code == 201
+    assert response_b.status_code == 201
+
+    assert response_a.json()["id"] != response_b.json()["id"]
