@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from app.core.config import settings
 from app.core.database import get_db
 from app.main import app
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 
@@ -81,6 +81,17 @@ def test_register_user_successfully(client: TestClient):
     assert "password" not in body
     assert "password_hash" not in body
 
+def test_register_normalizes_email(client: TestClient):
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "  TEST@EXAMPLE.COM  ",
+            "password": "StrongPassword123!",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["email"] == "test@example.com"
 
 def test_register_duplicate_email_returns_conflict(
         client: TestClient,
@@ -193,6 +204,47 @@ def test_get_current_user_with_valid_token(
     assert response.status_code == 200
     assert response.json()["email"] == "current@example.com"
     assert response.json()["is_active"] is True
+
+
+def test_inactive_user_cannot_access_protected_endpoint(
+    client: TestClient,
+    db_session: Session,
+):
+    client.post(
+        "/auth/register",
+        json={
+            "email": "inactive@example.com",
+            "password": "StrongPassword123!",
+        },
+    )
+
+    login_response = client.post(
+        "/auth/login",
+        json={
+            "email": "inactive@example.com",
+            "password": "StrongPassword123!",
+        },
+    )
+
+    access_token = login_response.json()["access_token"]
+
+    user = db_session.scalar(
+        select(User).where(User.email == "inactive@example.com")
+    )
+
+    assert user is not None
+
+    user.is_active = False
+    db_session.flush()
+
+    response = client.get(
+        "/auth/me",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+        },
+    )
+
+    assert response.status_code == 401
 
 
 def test_get_current_user_without_token_returns_401(
