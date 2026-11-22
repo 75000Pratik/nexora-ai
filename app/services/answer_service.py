@@ -1,3 +1,5 @@
+import re
+
 from uuid import UUID
 from app.schemas.answer import (
     AnswerSource,
@@ -16,6 +18,30 @@ from app.services.answer_validation_service import (
 
 
 class AnswerService:
+    @staticmethod
+    def _has_valid_citations(
+        answer: str,
+        source_count: int,
+    ) -> bool:
+        citations = re.findall(
+            r"\[Source\b([^\]]*)(\]|$)",
+            answer,
+        )
+
+        if not citations:
+            return False
+
+        for citation, closing_bracket in citations:
+            if not closing_bracket or not citation.strip().isdigit():
+                return False
+
+            source_number = int(citation.strip())
+
+            if source_number < 1 or source_number > source_count:
+                return False
+
+        return True
+
     def __init__(self) -> None:
         self.retrieval_service = HybridRetrievalService()
         self.llm_service = LLMService()
@@ -102,6 +128,16 @@ class AnswerService:
                 "I couldn't verify that the generated answer is fully "
                 "supported by the available documents, so I can't "
                 "provide a reliable answer."
+            )
+
+        elif not self._has_valid_citations(
+            answer=generated_answer,
+            source_count=len(results),
+        ):
+            generated_answer = (
+                "I couldn't verify that the generated answer contains "
+                "valid source citations, so I can't provide a "
+                "reliable answer."
             )
 
         sources = [

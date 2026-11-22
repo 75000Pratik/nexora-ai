@@ -123,3 +123,45 @@ def test_answer_passes_project_id_to_retrieval():
         document_id=None,
         project_id="project-123",
     )
+
+
+def test_has_valid_citations_accepts_existing_sources():
+    assert AnswerService._has_valid_citations(
+        answer="The project uses RAG. [Source 1] [Source 2]",
+        source_count=2,
+    )
+
+
+def test_has_valid_citations_rejects_nonexistent_source():
+    assert not AnswerService._has_valid_citations(
+        answer="The project uses RAG. [Source 3]",
+        source_count=2,
+    )
+
+
+def test_has_valid_citations_rejects_source_zero():
+    assert not AnswerService._has_valid_citations(
+        answer="The project uses RAG. [Source 0]",
+        source_count=2,
+    )
+
+
+def test_has_valid_citations_rejects_malformed_source():
+    assert not AnswerService._has_valid_citations(
+        answer="The project uses RAG. [Source abc]",
+        source_count=2,
+    )
+
+
+def test_has_valid_citations_rejects_missing_citations():
+    assert not AnswerService._has_valid_citations(
+        answer="The project uses RAG.",
+        source_count=2,
+    )
+
+
+def test_has_valid_citations_rejects_unclosed_source():
+    assert not AnswerService._has_valid_citations(
+        answer="The project uses RAG. [Source 1",
+        source_count=2,
+    )
