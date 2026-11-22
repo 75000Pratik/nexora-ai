@@ -1,3 +1,4 @@
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 from app.core.exceptions import (
     LLMServiceError,
@@ -131,7 +132,6 @@ def test_ask_endpoint_passes_project_id(
         },
         headers={"Authorization": f"Bearer {token}"},
     )
-    print(response.json())
     assert response.status_code == 200
 
     body = response.json()
@@ -262,7 +262,7 @@ def test_document_id_overrides_general_route(
         document_id: str | None = None,
         project_id: str | None = None,
     ):
-        assert document_id == str(document_id_expected)
+        assert document_id == str(expected_document_id)
         assert user_id == user.id
 
         return AskResponse(
@@ -271,7 +271,7 @@ def test_document_id_overrides_general_route(
             sources=[],
         )
 
-    document_id_expected = document_id
+    expected_document_id = document_id
 
     monkeypatch.setattr(
         "app.api.ask.answer_service.answer",
@@ -354,3 +354,117 @@ def test_ask_endpoint_returns_504_for_llm_timeout(
     assert response.json() == {
         "detail": "The AI service request timed out. Please try again."
     }
+
+
+def test_ask_endpoint_rejects_another_users_project(
+    client: TestClient,
+    monkeypatch,
+):
+    owner_token = register_and_login(
+        client,
+        "project-owner@example.com",
+    )
+
+    other_user_token = register_and_login(
+        client,
+        "different-user@example.com",
+    )
+
+    project_response = client.post(
+        "/projects",
+        json={"name": "Private Project"},
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+
+    assert project_response.status_code == 201
+
+    project_id = project_response.json()["id"]
+
+    monkeypatch.setattr(
+        "app.api.ask.answer_service.answer",
+        Mock(
+            side_effect=AssertionError(
+                "Unauthorized project access must be rejected."
+            )
+        ),
+    )
+
+    response = client.post(
+        "/ask",
+        json={
+            "query": "Explain this project",
+            "project_id": project_id,
+        },
+        headers={
+            "Authorization": f"Bearer {other_user_token}"
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Project not found."
+
+
+def test_ask_endpoint_returns_404_for_invalid_project_id(
+    client: TestClient,
+    monkeypatch,
+):
+    token = register_and_login(
+        client,
+        "invalid-project@example.com",
+    )
+
+    monkeypatch.setattr(
+        "app.api.ask.answer_service.answer",
+        Mock(
+            side_effect=AssertionError(
+                "Invalid project IDs must be rejected."
+            )
+        ),
+    )
+
+    response = client.post(
+        "/ask",
+        json={
+            "query": "Explain this project",
+            "project_id": "not-a-valid-uuid",
+        },
+        headers={
+            "Authorization": f"Bearer {token}"
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Project not found."
+
+
+def test_ask_endpoint_returns_404_for_invalid_document_id(
+    client: TestClient,
+    monkeypatch,
+):
+    token = register_and_login(
+        client,
+        "invalid-document@example.com",
+    )
+
+    monkeypatch.setattr(
+        "app.api.ask.answer_service.answer",
+        Mock(
+            side_effect=AssertionError(
+                "Invalid document IDs must be rejected."
+            )
+        ),
+    )
+
+    response = client.post(
+        "/ask",
+        json={
+            "query": "Explain this document",
+            "document_id": "not-a-valid-uuid",
+        },
+        headers={
+            "Authorization": f"Bearer {token}"
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Document not found."

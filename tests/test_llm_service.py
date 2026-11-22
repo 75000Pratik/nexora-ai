@@ -168,3 +168,87 @@ def test_generate_handles_empty_answer(monkeypatch):
 
     with pytest.raises(LLMServiceError):
         service.generate("What is Python?")
+
+
+@pytest.mark.parametrize(
+    "response_data",
+    [
+        [],
+        {"message": []},
+        {"message": {}},
+        {"message": {"content": 123}},
+        {"message": {"content": None}},
+    ],
+)
+def test_generate_handles_malformed_response_structure(
+    monkeypatch,
+    response_data,
+):
+    service = LLMService()
+
+    request = httpx.Request(
+        "POST",
+        "http://localhost:11434/api/chat",
+    )
+    response = httpx.Response(
+        200,
+        json=response_data,
+        request=request,
+    )
+
+    monkeypatch.setattr(
+        "app.services.llm_service.httpx.post",
+        lambda *args, **kwargs: response,
+    )
+
+    with pytest.raises(LLMServiceError):
+        service.generate("What is Python?")
+
+def test_generate_sends_correct_request_payload(monkeypatch):
+    service = LLMService()
+    captured = {}
+
+    request = httpx.Request(
+        "POST",
+        f"{service.base_url}/api/chat",
+    )
+    response = httpx.Response(
+        200,
+        json={
+            "message": {
+                "content": "Python is a programming language."
+            }
+        },
+        request=request,
+    )
+
+    def fake_post(url, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        return response
+
+    monkeypatch.setattr(
+        "app.services.llm_service.httpx.post",
+        fake_post,
+    )
+
+    service.generate(
+        "What is Python?",
+        system_prompt="You are a Python tutor.",
+    )
+
+    assert captured["url"] == f"{service.base_url}/api/chat"
+    assert captured["json"]["model"] == service.model
+    assert captured["json"]["messages"] == [
+        {
+            "role": "system",
+            "content": "You are a Python tutor.",
+        },
+        {
+            "role": "user",
+            "content": "What is Python?",
+        },
+    ]
+    assert captured["json"]["stream"] is False
+    assert captured["json"]["options"]["temperature"] == 0
+    assert captured["timeout"] == 120.0

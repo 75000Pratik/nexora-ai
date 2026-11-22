@@ -1,3 +1,6 @@
+import pytest
+
+from app.core.exceptions import LLMServiceError
 from app.schemas.answer import AskResponse
 from app.services.general_answer_service import GeneralAnswerService
 
@@ -23,3 +26,21 @@ def test_general_answer_returns_generated_response(monkeypatch):
     assert result.query == "What is Python?"
     assert result.answer == "Python is a programming language."
     assert result.sources == []
+
+
+def test_general_answer_propagates_llm_service_error(monkeypatch):
+    service = GeneralAnswerService()
+
+    def fake_generate(prompt, system_prompt):
+        raise LLMServiceError(
+            "Unable to communicate with the LLM provider."
+        )
+
+    monkeypatch.setattr(
+        service.llm_service,
+        "generate",
+        fake_generate,
+    )
+
+    with pytest.raises(LLMServiceError):
+        service.answer("What is Python?")
