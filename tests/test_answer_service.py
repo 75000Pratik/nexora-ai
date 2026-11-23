@@ -40,6 +40,10 @@ def test_answer_filters_low_scoring_results(monkeypatch):
         return_value=True
     )
 
+    service.validation_service.are_citations_supported = Mock(
+        return_value=True
+    )
+
     monkeypatch.setattr(
         "app.services.answer_service.settings.reranking_min_score",
         0.0,

@@ -109,7 +109,8 @@ class AnswerService:
             f"Question:\n{query}\n\n"
             f"Retrieved document context:\n{context}\n\n"
             "Answer the question using the context above. "
-            "Include source markers for claims when possible."
+            "Include at least one valid source marker for every factual "
+            "sentence. Never leave a factual sentence uncited."
         )
 
         generated_answer = self.llm_service.generate(
@@ -138,6 +139,19 @@ class AnswerService:
                 "I couldn't verify that the generated answer contains "
                 "valid source citations, so I can't provide a "
                 "reliable answer."
+            )
+
+        elif not self.validation_service.are_citations_supported(
+            answer=generated_answer,
+            sources=[
+                result.text
+                for result in results
+            ],
+        ):
+            generated_answer = (
+                "I couldn't verify that the generated answer's "
+                "citations support each claim, so I can't provide "
+                "a reliable answer."
             )
 
         sources = [

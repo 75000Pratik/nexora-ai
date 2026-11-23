@@ -27,6 +27,116 @@ class AnswerValidationService:
 
         return not answer_entities.issubset(context_entities)
 
+    @staticmethod
+    def _extract_cited_claims(
+        answer: str,
+        sources: list[str],
+    ) -> list[tuple[str, list[str]]] | None:
+        claims = []
+
+        sentences = re.split(
+            r"(?<=[.!?])\s+(?!\[Source\b)|(?<=\])\s+(?=[A-Z])",
+            answer.strip(),
+        )
+
+        for sentence in sentences:
+            if not sentence.strip():
+                continue
+
+            citations = re.findall(
+                r"\[Source\b([^\]]*)(\]|$)",
+                sentence,
+            )
+
+            if not citations:
+                return None
+
+            if any(
+                not closing_bracket
+                or not citation.strip().isdigit()
+                for citation, closing_bracket in citations
+            ):
+                return None
+
+            source_numbers = [
+                int(citation.strip())
+                for citation, _ in citations
+            ]
+
+            if any(
+                number < 1 or number > len(sources)
+                for number in source_numbers
+            ):
+                return None
+
+            claim = re.sub(
+                r"\s*\[Source\b[^\]]*\]",
+                "",
+                sentence,
+            ).strip()
+
+            if not claim:
+                return None
+
+            cited_sources = [
+                sources[number - 1]
+                for number in source_numbers
+            ]
+
+            claims.append((claim, cited_sources))
+
+        return claims or None
+
+    def are_citations_supported(
+        self,
+        answer: str,
+        sources: list[str],
+    ) -> bool:
+        claims = self._extract_cited_claims(
+            answer=answer,
+            sources=sources,
+        )
+
+        if not claims:
+            return False
+
+        system_prompt = (
+            "You are a strict claim-level citation verifier. "
+            "Verify whether the provided evidence supports "
+            "the specific claim.\n"
+            "Rules:\n"
+            "1. Use only the supplied cited evidence.\n"
+            "2. Do not use outside knowledge or assumptions.\n"
+            "3. Verify every factual detail in the claim.\n"
+            "4. Check named services, models, dates, numbers, "
+            "and project associations carefully.\n"
+            "5. If the evidence is insufficient or ambiguous, "
+            "return UNSUPPORTED.\n"
+            "Reply with exactly one word: SUPPORTED or UNSUPPORTED."
+        )
+
+        for claim, cited_sources in claims:
+            evidence = "\n\n".join(cited_sources)
+
+            prompt = (
+                f"Claim:\n{claim}\n\n"
+                f"Cited evidence:\n{evidence}\n\n"
+                "Does this evidence explicitly support the claim?"
+            )
+
+            try:
+                verdict = self.llm_service.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                )
+            except Exception:
+                return False
+
+            if verdict.strip().upper() != "SUPPORTED":
+                return False
+
+        return True
+
     def is_supported(
         self,
         query: str,
