@@ -1,3 +1,6 @@
+from typing import Literal
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,7 +13,7 @@ class Settings(BaseSettings):
     search_rate_limit: str = "20/minute"
     upload_rate_limit: str = "5/minute"
     jwt_secret_key: str
-    jwt_algorithm: str = "HS256"
+    jwt_algorithm: Literal["HS256"] = "HS256"
     access_token_expire_minutes: int = 30
 
     database_url: str
@@ -20,6 +23,16 @@ class Settings(BaseSettings):
 
     ollama_url: str = "http://localhost:11434"
     llm_model: str = "qwen2.5:1.5b"
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def validate_jwt_secret_key(cls, value: str) -> str:
+        if len(value) < 32:
+            raise ValueError(
+                "JWT secret key must be at least 32 characters long."
+            )
+
+        return value
 
     model_config = SettingsConfigDict(
         env_file=".env",
