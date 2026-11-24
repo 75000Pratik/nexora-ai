@@ -103,3 +103,15 @@ def test_decode_access_token_rejects_empty_subject():
     result = decode_access_token(token)
 
     assert result is None
+
+
+def test_decode_access_token_rejects_wrong_secret():
+    token = jwt.encode(
+        {"sub": "user-123"},
+        "x" * 32,
+        algorithm=settings.jwt_algorithm,
+    )
+
+    result = decode_access_token(token)
+
+    assert result is None
