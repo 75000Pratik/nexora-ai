@@ -28,7 +28,11 @@ from app.schemas.document import (
     DocumentStatus,
 )
 from app.services.document_processing_service import process_document_text
-from app.services.pdf_service import extract_text_from_pdf
+from app.services.pdf_service import (
+    PDFPageLimitExceededError,
+    extract_text_from_pdf,
+)
+
 from app.services.vector_store_service import VectorStoreService
 
 
@@ -150,6 +154,14 @@ async def upload_document(
 
     try:
         extracted_text = extract_text_from_pdf(file_path)
+
+    except PDFPageLimitExceededError as exc:
+        remove_uploaded_file(file_path, document_id)
+
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=str(exc),
+        ) from exc
 
     except Exception as exc:
         remove_uploaded_file(file_path, document_id)

@@ -72,11 +72,14 @@ def override_dependencies():
 client = TestClient(app)
 
 
-def create_test_pdf() -> bytes:
+def create_test_pdf(page_count: int = 1) -> bytes:
     pdf_stream = BytesIO()
 
     writer = PdfWriter()
-    writer.add_blank_page(width=612, height=792)
+
+    for _ in range(page_count):
+        writer.add_blank_page(width=612, height=792)
+
     writer.write(pdf_stream)
 
     return pdf_stream.getvalue()
@@ -1009,4 +1012,22 @@ def test_upload_rejects_project_id_longer_than_100_characters():
     assert response.status_code == 422
     assert response.json()["detail"] == (
         "Project ID cannot exceed 100 characters."
+    )
+
+
+def test_upload_rejects_pdf_with_more_than_100_pages():
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "large.pdf",
+                create_test_pdf(page_count=101),
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 413
+    assert response.json()["detail"] == (
+        "PDF cannot contain more than 100 pages."
     )
