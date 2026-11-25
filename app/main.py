@@ -5,6 +5,8 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.core.rate_limiter import limiter
+from app.core.logging_config import configure_logging
+from app.core.middleware import RequestIDMiddleware
 from app.core.exceptions import (
     LLMServiceTimeoutError,
     LLMServiceError,
@@ -16,6 +18,7 @@ from app.core.config import settings
 from app.api.projects import router as projects_router
 from app.api.search import router as search_router
 
+configure_logging()
 
 app = FastAPI(
     title=settings.app_name,
@@ -23,6 +26,7 @@ app = FastAPI(
     version=settings.app_version,
 )
 
+app.add_middleware(RequestIDMiddleware)
 app.state.limiter = limiter
 app.add_exception_handler(
     RateLimitExceeded,
