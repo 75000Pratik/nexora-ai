@@ -84,6 +84,30 @@ async def llm_error_handler(
         },
     )
 
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(
+    request: Request,
+    exc: Exception,
+):
+    logger.error(
+        "Unhandled request exception",
+        exc_info=(type(exc), exc, exc.__traceback__),
+        extra={
+            "request_id": getattr(request.state, "request_id", None),
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": 500,
+        },
+    )
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "An unexpected error occurred."
+        },
+    )
+
 app.include_router(health_router)
 app.include_router(documents_router)
 app.include_router(search_router)
