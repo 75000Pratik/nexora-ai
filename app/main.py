@@ -1,3 +1,5 @@
+import logging
+
 from app.api.auth import router as auth_router
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -19,6 +21,7 @@ from app.api.projects import router as projects_router
 from app.api.search import router as search_router
 
 configure_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.app_name,
@@ -39,6 +42,17 @@ async def llm_timeout_handler(
     request: Request,
     exc: LLMServiceTimeoutError,
 ):
+    logger.error(
+        "LLM service request timed out",
+        exc_info=(type(exc), exc, exc.__traceback__),
+        extra={
+            "request_id": getattr(request.state, "request_id", None),
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": 504,
+        },
+    )
+
     return JSONResponse(
         status_code=504,
         content={
@@ -52,6 +66,17 @@ async def llm_error_handler(
     request: Request,
     exc: LLMServiceError,
 ):
+    logger.error(
+        "LLM service unavailable",
+        exc_info=(type(exc), exc, exc.__traceback__),
+        extra={
+            "request_id": getattr(request.state, "request_id", None),
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": 502,
+        },
+    )
+
     return JSONResponse(
         status_code=502,
         content={
