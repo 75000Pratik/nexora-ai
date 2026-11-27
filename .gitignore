@@ -46,3 +46,5 @@ uploads/
 # Temporary files
 *.tmp
 *.temp
+# Database backups
+*.dump
