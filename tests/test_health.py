@@ -111,7 +111,7 @@ def test_readiness_check_when_dependencies_are_available(monkeypatch):
     monkeypatch.setattr(
         health.vector_store.client,
         "get_collections",
-        lambda timeout: [],
+        lambda: [],
     )
 
     monkeypatch.setattr(
@@ -154,7 +154,7 @@ def test_readiness_check_when_qdrant_is_unavailable(monkeypatch):
         lambda: FakeConnection(),
     )
 
-    def raise_qdrant_error(timeout):
+    def raise_qdrant_error():
         raise RuntimeError("Qdrant unavailable")
 
     monkeypatch.setattr(

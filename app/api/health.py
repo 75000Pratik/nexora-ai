@@ -40,7 +40,7 @@ def readiness_check():
         logger.exception("Database readiness check failed")
 
     try:
-        vector_store.client.get_collections(timeout=3)
+        vector_store.client.get_collections()
         checks["qdrant"] = True
     except Exception:
         logger.exception("Qdrant readiness check failed")
