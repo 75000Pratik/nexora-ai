@@ -3,6 +3,8 @@ import json
 
 from uuid import UUID
 
+from app.api import health
+
 from fastapi.testclient import TestClient
 
 from app.core.logging_config import JSONFormatter
@@ -83,3 +85,98 @@ def test_request_logging_includes_metadata(caplog):
     assert log_data["path"] == "/health"
     assert log_data["status_code"] == 200
     assert log_data["duration_ms"] >= 0
+
+
+def test_readiness_check_when_dependencies_are_available(monkeypatch):
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        def execute(self, statement):
+            return 1
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(
+        health.engine,
+        "connect",
+        lambda: FakeConnection(),
+    )
+
+    monkeypatch.setattr(
+        health.vector_store.client,
+        "get_collections",
+        lambda timeout: [],
+    )
+
+    monkeypatch.setattr(
+        health.httpx,
+        "get",
+        lambda url, timeout: FakeResponse(),
+    )
+
+    response = client.get("/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ready",
+        "checks": {
+            "database": True,
+            "qdrant": True,
+            "ollama": True,
+        },
+    }
+
+
+def test_readiness_check_when_qdrant_is_unavailable(monkeypatch):
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        def execute(self, statement):
+            return 1
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(
+        health.engine,
+        "connect",
+        lambda: FakeConnection(),
+    )
+
+    def raise_qdrant_error(timeout):
+        raise RuntimeError("Qdrant unavailable")
+
+    monkeypatch.setattr(
+        health.vector_store.client,
+        "get_collections",
+        raise_qdrant_error,
+    )
+
+    monkeypatch.setattr(
+        health.httpx,
+        "get",
+        lambda url, timeout: FakeResponse(),
+    )
+
+    response = client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not_ready",
+        "checks": {
+            "database": True,
+            "qdrant": False,
+            "ollama": True,
+        },
+    }
