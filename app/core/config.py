@@ -1,5 +1,7 @@
 import math
 
+from limits.util import parse_many
+
 from typing import Literal
 
 from pydantic import field_validator
@@ -77,6 +79,22 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator(
+        "ask_rate_limit",
+        "search_rate_limit",
+        "upload_rate_limit",
+    )
+    @classmethod
+    def validate_rate_limits(cls, value: str) -> str:
+        try:
+            parse_many(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid rate limit configuration: {value}"
+            ) from exc
+
+        return value
 
 
 settings = Settings()

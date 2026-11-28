@@ -111,3 +111,16 @@ def test_settings_rejects_non_finite_reranking_min_score(invalid_score):
             database_url="sqlite://",
             reranking_min_score=invalid_score,
         )
+
+@pytest.mark.parametrize(
+    "field_name",
+    ["ask_rate_limit", "search_rate_limit", "upload_rate_limit"],
+)
+def test_settings_rejects_invalid_rate_limit(field_name):
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            jwt_secret_key="a" * 32,
+            database_url="sqlite://",
+            **{field_name: "invalid-rate-limit"},
+        )
