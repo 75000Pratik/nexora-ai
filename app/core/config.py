@@ -1,3 +1,5 @@
+import math
+
 from typing import Literal
 
 from pydantic import field_validator
@@ -56,6 +58,16 @@ class Settings(BaseSettings):
         if value <= 0:
             raise ValueError(
                 "Access token expiration must be greater than zero."
+            )
+
+        return value
+
+    @field_validator("reranking_min_score")
+    @classmethod
+    def validate_reranking_min_score(cls, value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError(
+                "Reranking minimum score must be a finite number."
             )
 
         return value

@@ -94,3 +94,20 @@ def test_settings_rejects_short_jwt_secret_in_production():
             database_url="sqlite://",
             environment="production",
         )
+
+
+@pytest.mark.parametrize(
+    "invalid_score",
+    [float("nan"), float("inf"), float("-inf")],
+)
+def test_settings_rejects_non_finite_reranking_min_score(invalid_score):
+    with pytest.raises(
+        ValidationError,
+        match="finite number",
+    ):
+        Settings(
+            _env_file=None,
+            jwt_secret_key="a" * 32,
+            database_url="sqlite://",
+            reranking_min_score=invalid_score,
+        )
