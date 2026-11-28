@@ -68,3 +68,15 @@ def test_settings_rejects_unsupported_environment():
             database_url="sqlite://",
             environment="prodution",
         )
+
+def test_settings_rejects_placeholder_jwt_secret_in_production():
+    with pytest.raises(
+        ValidationError,
+        match="placeholder",
+    ):
+        Settings(
+            _env_file=None,
+            jwt_secret_key="your-secret-key-change-me-123456",
+            database_url="sqlite://",
+            environment="production",
+        )
