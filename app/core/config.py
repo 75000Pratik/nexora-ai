@@ -43,6 +43,10 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Production JWT secret cannot be a placeholder."
                 )
+            if len(value) < 43:
+                raise ValueError(
+                    "Production JWT secret must be at least 43 characters long."
+                )
 
         return value
 
