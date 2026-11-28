@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "Nexora AI"
     app_version: str = "0.1.0"
-    environment: str = "development"
+    environment: Literal["development", "testing","staging", "production"] = "development"
     reranking_min_score: float = 0.0
     ask_rate_limit: str = "10/minute"
     search_rate_limit: str = "20/minute"
@@ -30,6 +30,16 @@ class Settings(BaseSettings):
         if len(value) < 32:
             raise ValueError(
                 "JWT secret key must be at least 32 characters long."
+            )
+
+        return value
+
+    @field_validator("access_token_expire_minutes")
+    @classmethod
+    def validate_access_token_expire_minutes(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError(
+                "Access token expiration must be greater than zero."
             )
 
         return value

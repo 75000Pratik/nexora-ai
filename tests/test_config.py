@@ -45,3 +45,26 @@ def test_settings_rejects_unsupported_jwt_algorithm():
             database_url="sqlite://",
             jwt_algorithm="HS384",
         )
+
+
+def test_settings_rejects_non_positive_token_expiration():
+    with pytest.raises(
+        ValidationError,
+        match="greater than zero",
+    ):
+        Settings(
+            _env_file=None,
+            jwt_secret_key="a" * 32,
+            database_url="sqlite://",
+            access_token_expire_minutes=0,
+        )
+
+
+def test_settings_rejects_unsupported_environment():
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            jwt_secret_key="a" * 32,
+            database_url="sqlite://",
+            environment="prodution",
+        )
